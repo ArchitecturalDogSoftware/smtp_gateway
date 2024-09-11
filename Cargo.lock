@@ -215,7 +215,6 @@ name = "smtp_bridge_bot"
 version = "0.1.0"
 dependencies = [
  "smtp_bridge",
- "tokio",
 ]
 
 [[package]]
