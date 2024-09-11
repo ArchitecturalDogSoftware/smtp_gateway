@@ -1,5 +1,5 @@
 [package]
-name = "smtp_bridge_bot"
+name = "smtp_gateway_bot"
 version = "0.1.0"
 description = "A Discord bot with a built-in SMTP server for notifications"
 
@@ -11,4 +11,4 @@ edition.workspace = true
 publish.workspace = true
 
 [dependencies]
-smtp_bridge = { version = "0.1.0", path = ".." }
+smtp_gateway = { version = "0.1.0", path = ".." }

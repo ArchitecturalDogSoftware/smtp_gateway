@@ -2,18 +2,18 @@
 //
 // Copyright © 2024 RemasteredArch
 //
-// This file is part of smtp_bridge.
+// This file is part of smtp_gateway.
 //
-// smtp_bridge is free software: you can redistribute it and/or modify it under the terms of the
+// smtp_gateway is free software: you can redistribute it and/or modify it under the terms of the
 // GNU Affero General Public License as published by the Free Software Foundation, either version
 // 3 of the License, or (at your option) any later version.
 //
-// smtp_bridge is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+// smtp_gateway is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
 // without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See
 // the GNU Affero General Public License for more details.
 //
 // You should have received a copy of the GNU Affero General Public License along with
-// smtp_bridge. If not, see <https://www.gnu.org/licenses/>.
+// smtp_gateway. If not, see <https://www.gnu.org/licenses/>.
 
 use std::error::Error;
 

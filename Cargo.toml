@@ -1,5 +1,5 @@
 [package]
-name = "smtp_bridge"
+name = "smtp_gateway"
 version = "0.1.0"
 description = "A library for receiving SMTP messages"
 
@@ -16,7 +16,7 @@ package.readme = true
 package.license = "AGPL-3.0-or-later"                                 # Maybe "Apache-2.0 OR MIT" for the lib?
 package.edition = "2021"
 
-members = ["smtp_bridge_bot"]
+members = ["smtp_gateway_bot"]
 
 [dependencies]
 tokio = { version = "1.40.0", features = ["full"] } # Replace `"full"` later
