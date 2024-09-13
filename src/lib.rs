@@ -25,8 +25,11 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
+mod str;
 #[cfg(test)]
 mod test;
+
+pub use str::SmtpStr;
 
 pub async fn listen(listener: TcpListener) -> io::Result<()> {
     loop {

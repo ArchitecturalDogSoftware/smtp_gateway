@@ -22,18 +22,22 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
+use crate::SmtpStr;
+
 type Result = std::result::Result<(), Box<dyn Error>>;
 
 #[tokio::test]
 async fn test_listen() -> Result {
     const ADDR: &str = "127.0.0.1:8080";
 
-    // TODO: this should be CRLF, not LF
-    const MSG: &str = "Hello TCP!
+    let message = &mut "Hello TCP!
 s
   d
 az
-";
+"
+    .to_string();
+
+    let message = SmtpStr::mutate_into(message)?;
 
     // Can be bound to a variable which exposes `.abort()`
     tokio::spawn(crate::listen(TcpListener::bind(ADDR).await?));
@@ -44,7 +48,7 @@ az
     let mut reader = BufReader::new(read_stream);
     let mut response = String::new();
 
-    write_stream.write_all(MSG.as_bytes()).await?;
+    write_stream.write_all(message.as_bytes()).await?;
 
     // Never-ending
     // Use with `cargo test -- --nocapture` for an accessible server to test with utilities
@@ -57,7 +61,7 @@ az
         }
     }
 
-    assert_eq!(MSG, response);
+    assert_eq!(message.as_bytes(), response.as_bytes());
 
     Ok(())
 }
