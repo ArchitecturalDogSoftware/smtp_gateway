@@ -25,11 +25,14 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
+#[macro_use]
 mod str;
 #[cfg(test)]
 mod test;
 
 pub use str::SmtpStr;
+
+const DOMAIN: &str = "example.com";
 
 pub async fn listen(listener: TcpListener) -> io::Result<()> {
     loop {
@@ -48,6 +51,10 @@ async fn handle_connection(mut stream: TcpStream) -> io::Result<()> {
     let (read_stream, mut write_stream) = stream.split();
     let mut reader = BufReader::new(read_stream);
 
+    write_stream
+        .write_all(format!("220 {DOMAIN} SMTP Testing Service Ready").as_bytes())
+        .await?;
+
     let close_reason = loop {
         // Read a string into a buffer until a newline
         let mut line = String::new();
@@ -58,10 +65,7 @@ async fn handle_connection(mut stream: TcpStream) -> io::Result<()> {
             break CloseReason::ClosedByClient;
         }
 
-        // Trim whitespace from line
-        let line = line.trim();
-
-        let (response, should_close) = handle_smtp_command(line);
+        let (response, should_close) = handle_smtp_command(&mut line);
 
         write_stream.write_all(response.as_bytes()).await?;
 
@@ -80,17 +84,15 @@ async fn handle_connection(mut stream: TcpStream) -> io::Result<()> {
     Ok(())
 }
 
-fn handle_smtp_command(line: &str) -> (String, ShouldClose) {
-    if line == "QUIT" {
-        return (
-            "221 Bye\r\n".to_string(),
-            ShouldClose::Close(CloseReason::Quit),
-        );
+fn handle_smtp_command(line: &mut String) -> (&str, ShouldClose) {
+    // Trim whitespace from line
+    let trimmed = line.trim();
+
+    if trimmed == "QUIT" {
+        return ("221 Bye\r\n", ShouldClose::Close(CloseReason::Quit));
     }
 
-    let response = format!("ECHO {line}\n");
-
-    (response, ShouldClose::Keep)
+    (line, ShouldClose::Keep)
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
@@ -105,4 +107,27 @@ enum CloseReason {
     Quit,
     Error,
     ClosedByClient,
+}
+
+/// Tests whether a string is a domain name as considered by SMTP ([RFC 5321, section
+/// 2.3.5](https://www.rfc-editor.org/rfc/rfc5321.html#section-2.3.5))
+///
+/// Checks whether any character is string is not alphanumeric, a dash (`'-'`), or a period
+/// (`'.'`).
+///
+/// # Examples
+///
+/// ```rust
+/// # use smtp_gateway::is_smtp_domain_name;
+/// #
+/// assert!(is_smtp_domain_name("example.com"));
+/// assert!(is_smtp_domain_name("subdomain.example.com"));
+/// assert!(is_smtp_domain_name("notld"));
+/// assert!(!is_smtp_domain_name("example dot com"));
+/// assert!(!is_smtp_domain_name("plus+.com"));
+/// ```
+#[must_use]
+pub fn is_smtp_domain_name(str: &str) -> bool {
+    !str.chars()
+        .any(|c| !(c.is_ascii_alphanumeric() || c == '-' || c == '.'))
 }

@@ -15,6 +15,11 @@
 // You should have received a copy of the GNU Affero General Public License along with
 // smtp_gateway. If not, see <https://www.gnu.org/licenses/>.
 
+#![expect(
+    clippy::module_name_repetitions,
+    reason = "this will be publicly exported outside of this module"
+)]
+
 use std::fmt::Display;
 
 use ascii::{AsAsciiStr, AsAsciiStrError, AsciiStr};
@@ -28,10 +33,6 @@ const LF: char = '\n';
 ///
 /// [RFC 5321](https://www.rfc-editor.org/rfc/rfc5321.html) requires that only US-ASCII character
 /// encoding (sections 2.3.1 and 2.4) and `CRLF` line endings (section 2.3.8) are used.
-#[expect(
-    clippy::module_name_repetitions,
-    reason = "this will be publicly exported outside of this module"
-)]
 #[repr(transparent)]
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct SmtpStr {
@@ -65,6 +66,7 @@ impl SmtpStr {
     /// assert_eq!(smtp.as_bytes(), "LF\r\nCRLF\r\n".as_bytes());
     /// #     Ok(())
     /// # }
+    /// ```
     pub fn mutate_into(str: &mut String) -> Result<&Self, AsAsciiStrError> {
         // Where `LF` (but not `CRLF`) is encountered in `str`
         let mut lf_indices: Vec<usize> = vec![];
@@ -111,4 +113,63 @@ impl Display for SmtpStr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.str.fmt(f)
     }
+}
+
+pub fn is_smtp_str(str: &str) -> bool {
+    fn has_non_crlf(str: &str) -> bool {
+        // The last character, to check that `LF` is not `CRLF`
+        let mut previous = ' '; // Dummy value
+
+        let mut iter = str.chars();
+
+        while let Some(char) = iter.next() {
+            // `LF` but not `CRLF`
+            if char == LF && previous != CR {
+                return true;
+            }
+
+            if char == CR {
+                let next_is_lf = iter.next().is_some_and(|c| c == LF);
+
+                if !next_is_lf {
+                    return true;
+                }
+            }
+
+            previous = char;
+        }
+
+        false
+    }
+
+    str.is_ascii() && !has_non_crlf(str)
+}
+
+/// Create an [`SmtpStr`] bound to variable `var` out of string literal `str` with a trailing line
+/// ending.
+///
+/// # Errors
+///
+/// Calls [`SmtpStr::mutate_into`] with a `?` under the hood. Will return an error if passed an
+/// invalid ASCII string.
+///
+/// # Examples
+///
+/// ```rust
+/// # use smtp_gateway::SmtpStr;
+/// # use std::error::Error;
+/// #
+/// # fn main() -> Result<(), Box<dyn Error>> {
+/// smtp_str!(smtp = "LF\nCRLF");
+///
+/// assert_eq!(smtp.as_bytes(), "LF\r\nCRLF\r\n".as_bytes());
+/// #     Ok(())
+/// # }
+/// ```
+#[macro_export]
+macro_rules! smtp_str {
+    ($var:ident = $str:expr) => {
+        let $var = &mut concat!($str, "\r\n").to_string();
+        let $var = $crate::SmtpStr::mutate_into($var)?;
+    };
 }
