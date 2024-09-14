@@ -25,12 +25,9 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
-#[macro_use]
-mod str;
+pub mod str;
 #[cfg(test)]
 mod test;
-
-pub use str::SmtpStr;
 
 const DOMAIN: &str = "example.com";
 
@@ -52,7 +49,7 @@ async fn handle_connection(mut stream: TcpStream) -> io::Result<()> {
     let mut reader = BufReader::new(read_stream);
 
     write_stream
-        .write_all(format!("220 {DOMAIN} SMTP Testing Service Ready").as_bytes())
+        .write_all(format!("220 {DOMAIN} SMTP Testing Service Ready\r\n").as_bytes())
         .await?;
 
     let close_reason = loop {
@@ -65,7 +62,7 @@ async fn handle_connection(mut stream: TcpStream) -> io::Result<()> {
             break CloseReason::ClosedByClient;
         }
 
-        let (response, should_close) = handle_smtp_command(&mut line);
+        let (response, should_close) = handle_smtp_command(&line);
 
         write_stream.write_all(response.as_bytes()).await?;
 
@@ -84,7 +81,7 @@ async fn handle_connection(mut stream: TcpStream) -> io::Result<()> {
     Ok(())
 }
 
-fn handle_smtp_command(line: &mut String) -> (&str, ShouldClose) {
+fn handle_smtp_command(line: &str) -> (&str, ShouldClose) {
     // Trim whitespace from line
     let trimmed = line.trim();
 

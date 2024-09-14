@@ -28,7 +28,7 @@ type Result = std::result::Result<(), Box<dyn Error>>;
 ///
 /// # Errors
 ///
-/// - Any errors that would come out of the supplied reader's `read_line` function.
+/// - Any errors that could come out of the supplied reader's `read_line` function.
 /// - If `read_line` reads zero bytes, [`std::io::ErrorKind::ConnectionAborted`] is returned.
 macro_rules! read_line {
     ($reader:expr) => {{
@@ -50,13 +50,14 @@ macro_rules! read_line {
 ///
 /// # Errors
 ///
-/// - Any errors that would come out of the supplied writer's `write_all` function.
-/// - Forcefully returns with `?` if passed invalid ASCII.
-///     - This is undesirable, but a limitation of the current implementation.
+/// - [`std::io::ErrorKind::InvalidInput`] if passed invalid ASCII.
+/// - Any errors that could come out of the supplied writer's `write_all` function.
 macro_rules! write_line {
     ($writer:expr, $str:expr) => {{
-        $crate::smtp_str!(write_line_macro_str = $str);
-        $writer.write_all(write_line_macro_str.as_bytes()).await
+        match $crate::str::SmtpString::new(concat!($str, "\r\n")) {
+            Ok(s) => $writer.write_all(s.as_bytes()).await,
+            Err(e) => Err(::std::io::Error::new(::std::io::ErrorKind::InvalidInput, e)),
+        }
     }};
 }
 
