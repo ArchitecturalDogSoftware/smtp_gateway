@@ -48,13 +48,13 @@ impl SmtpString {
     /// # Examples
     ///
     /// ```rust
-    /// # use smtp_gateway::SmtpStr;
+    /// # use smtp_gateway::str::SmtpString;
     /// # use std::error::Error;
     /// #
     /// # fn main() -> Result<(), Box<dyn Error>> {
-    /// let smtp = SmtpStr::new("LF\nCR\rLFCR\n\rCRLF\r\n")?;
+    /// let smtp = SmtpString::new("LF\nCR\rLFCR\n\rCRLF\r\nCRLFCRLF\r\n\r\n")?;
     ///
-    /// assert_eq!(smtp, "LF\r\nCR\rLFCR\r\nCRLF\r\n");
+    /// assert_eq!(smtp.to_string(), "LF\r\nCR\r\nLFCR\r\n\r\nCRLF\r\nCRLFCRLF\r\n\r\n");
     /// #     Ok(())
     /// # }
     /// ```
@@ -101,12 +101,8 @@ impl Display for SmtpString {
 /// - Any [`CR`] not followed by [`LF`] with [`CRLF`].
 /// - Any [`LF`] not preceded by [`CR`] with [`CRLF`].
 ///
-/// # Examples
-///
-/// ```rust
-/// assert_eq!(replace_all_endings_with_crlf("LF\nCR\r"), "LF\r\nCR\r\n");
-/// assert_eq!(replace_all_endings_with_crlf("LFCR\n\r"), "LFCR\r\n\r\n");
-/// ```
+/// This means that any `LFCR` (`"\n\r"`) (not including the `"\n\r"` in the middle of
+/// `"\r\n\r\n"`) is replaced with `"\r\n\r\n"`.
 fn replace_all_endings_with_crlf(str: &str) -> String {
     let mut iter = str.chars();
 
