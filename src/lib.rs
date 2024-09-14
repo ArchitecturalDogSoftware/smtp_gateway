@@ -26,6 +26,7 @@ use tokio::{
 pub mod str;
 #[cfg(test)]
 mod test;
+pub mod timeouts;
 
 const DOMAIN: &str = "example.com";
 
