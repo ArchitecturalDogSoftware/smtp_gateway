@@ -28,7 +28,7 @@ pub const CRLF: &str = "\r\n";
 /// [RFC 5321](https://www.rfc-editor.org/rfc/rfc5321.html) requires that only US-ASCII character
 /// encoding (sections 2.3.1 and 2.4) and `CRLF` line endings (section 2.3.8) are used.
 #[repr(transparent)]
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Clone, Default)]
 pub struct SmtpString {
     str: AsciiString,
 }
