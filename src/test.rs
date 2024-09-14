@@ -22,44 +22,9 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
+use crate::{read_line, write_line};
+
 type Result = std::result::Result<(), Box<dyn Error>>;
-
-/// Read a line out of `reader`.
-///
-/// # Errors
-///
-/// - Any errors that could come out of the supplied reader's `read_line` function.
-/// - If `read_line` reads zero bytes, [`std::io::ErrorKind::ConnectionAborted`] is returned.
-macro_rules! read_line {
-    ($reader:expr) => {{
-        let mut read_line_macro_buffer = String::new();
-        match $reader.read_line(&mut read_line_macro_buffer).await {
-            Ok(read_bytes) => {
-                if read_bytes == 0 {
-                    Err(::std::io::ErrorKind::ConnectionAborted.into())
-                } else {
-                    Ok(read_line_macro_buffer)
-                }
-            }
-            Err(e) => Err(e),
-        }
-    }};
-}
-
-/// Write a string literal into `writer` as an [`crate::SmtpStr`]. Appends a line ending.
-///
-/// # Errors
-///
-/// - [`std::io::ErrorKind::InvalidInput`] if passed invalid ASCII.
-/// - Any errors that could come out of the supplied writer's `write_all` function.
-macro_rules! write_line {
-    ($writer:expr, $str:expr) => {{
-        match $crate::str::SmtpString::new(concat!($str, "\r\n")) {
-            Ok(s) => $writer.write_all(s.as_bytes()).await,
-            Err(e) => Err(::std::io::Error::new(::std::io::ErrorKind::InvalidInput, e)),
-        }
-    }};
-}
 
 #[tokio::test]
 async fn test_listen() -> Result {

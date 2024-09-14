@@ -18,8 +18,6 @@
 #![warn(clippy::nursery, clippy::pedantic)]
 #![cfg_attr(debug_assertions, allow(clippy::missing_errors_doc))]
 
-use std::io;
-
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::{TcpListener, TcpStream},
@@ -31,14 +29,33 @@ mod test;
 
 const DOMAIN: &str = "example.com";
 
-pub async fn listen(listener: TcpListener) -> io::Result<()> {
+pub async fn listen(listener: TcpListener) -> std::io::Result<()> {
     loop {
         let (stream, _) = listener.accept().await?;
         tokio::spawn(handle_connection(stream));
     }
 }
 
-async fn handle_connection(mut stream: TcpStream) -> io::Result<()> {
+async fn handle_connection(mut stream: TcpStream) -> std::io::Result<()> {
+    /// Read a line out of `reader`.
+    ///
+    /// If `read_line` reads zero bytes, `break` with [`CloseReason::ClosedByClient`].
+    ///
+    /// # Errors
+    ///
+    /// - Any errors that could come out of the supplied reader's `read_line` function.
+    macro_rules! read_line_or_break {
+        ($reader:expr) => {
+            match $crate::read_line!($reader) {
+                Ok(l) => Ok(l),
+                Err(e) => match e.kind() {
+                    ::std::io::ErrorKind::ConnectionAborted => break CloseReason::ClosedByClient,
+                    e => Err(e),
+                },
+            }
+        };
+    }
+
     println!(
         "Connection opened on {} by {}",
         stream.local_addr()?,
@@ -53,15 +70,7 @@ async fn handle_connection(mut stream: TcpStream) -> io::Result<()> {
         .await?;
 
     let close_reason = loop {
-        // Read a string into a buffer until a newline
-        let mut line = String::new();
-        let read_bytes = reader.read_line(&mut line).await?;
-
-        // Connection is closed
-        if read_bytes == 0 {
-            break CloseReason::ClosedByClient;
-        }
-
+        let line = read_line_or_break!(reader)?;
         let (response, should_close) = handle_smtp_command(&line);
 
         write_stream.write_all(response.as_bytes()).await?;
@@ -127,4 +136,43 @@ enum CloseReason {
 pub fn is_smtp_domain_name(str: &str) -> bool {
     !str.chars()
         .any(|c| !(c.is_ascii_alphanumeric() || c == '-' || c == '.'))
+}
+
+/// Read a line out of `reader`.
+///
+/// # Errors
+///
+/// - Any errors that could come out of the supplied reader's `read_line` function.
+/// - If `read_line` reads zero bytes, [`std::io::ErrorKind::ConnectionAborted`] is returned.
+#[macro_export]
+macro_rules! read_line {
+    ($reader:expr) => {{
+        let mut read_line_macro_buffer = String::new();
+        match $reader.read_line(&mut read_line_macro_buffer).await {
+            Ok(read_bytes) => {
+                if read_bytes == 0 {
+                    Err(::std::io::ErrorKind::ConnectionAborted.into())
+                } else {
+                    Ok(read_line_macro_buffer)
+                }
+            }
+            Err(e) => Err(e),
+        }
+    }};
+}
+
+/// Write a string literal into `writer` as an [`crate::SmtpStr`]. Appends a line ending.
+///
+/// # Errors
+///
+/// - [`std::io::ErrorKind::InvalidInput`] if passed invalid ASCII.
+/// - Any errors that could come out of the supplied writer's `write_all` function.
+#[macro_export]
+macro_rules! write_line {
+    ($writer:expr, $str:expr) => {{
+        match $crate::str::SmtpString::new(concat!($str, "\r\n")) {
+            Ok(s) => $writer.write_all(s.as_bytes()).await,
+            Err(e) => Err(::std::io::Error::new(::std::io::ErrorKind::InvalidInput, e)),
+        }
+    }};
 }
