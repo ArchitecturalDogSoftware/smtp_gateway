@@ -63,21 +63,35 @@ pub async fn listen(listener: TcpListener) -> std::io::Result<()> {
 }
 
 async fn handle_connection(mut stream: TcpStream) -> std::io::Result<()> {
-    /// Read a line out of `reader`.
+    /// Read a line out of `reader` or break with [`CloseReason`].
+    ///
+    /// # Breaks
     ///
     /// If `read_line` reads zero bytes, `break` with [`CloseReason::ClosedByClient`].
+    /// If `read_line` takes more than [`timeouts::SERVER_TIMEOUT`], break with
+    /// [`CloseReason::TimedOut`].
     ///
     /// # Errors
     ///
     /// - Any errors that could come out of the supplied reader's `read_line` function.
     macro_rules! read_line_or_break {
         ($reader:expr) => {
-            match $crate::read_line!($reader) {
-                Ok(l) => Ok(l),
-                Err(e) => match e.kind() {
-                    ::std::io::ErrorKind::ConnectionAborted => break CloseReason::ClosedByClient,
-                    e => Err(e),
+            match ::tokio::time::timeout(
+                $crate::timeouts::SERVER_TIMEOUT,
+                $crate::read_line!($reader),
+            )
+            .await
+            {
+                Ok(result) => match result {
+                    Ok(line) => Ok(line),
+                    Err(err) => match err.kind() {
+                        ::std::io::ErrorKind::ConnectionAborted => {
+                            break CloseReason::ClosedByClient
+                        }
+                        err => Err(err),
+                    },
                 },
+                Err(elapsed) => break CloseReason::TimedOut(elapsed),
             }
         };
     }
@@ -127,17 +141,18 @@ fn handle_smtp_command(line: &str) -> (&str, ShouldClose) {
     (line, ShouldClose::Keep)
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, Debug)]
 enum ShouldClose {
     Keep,
     Close(CloseReason),
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 #[expect(dead_code)]
 enum CloseReason {
     Quit,
     Error,
+    TimedOut(tokio::time::error::Elapsed),
     ClosedByClient,
 }
 
@@ -172,19 +187,21 @@ pub fn is_smtp_domain_name(str: &str) -> bool {
 /// - If `read_line` reads zero bytes, [`std::io::ErrorKind::ConnectionAborted`] is returned.
 #[macro_export]
 macro_rules! read_line {
-    ($reader:expr) => {{
-        let mut read_line_macro_buffer = String::new();
-        match $reader.read_line(&mut read_line_macro_buffer).await {
-            Ok(read_bytes) => {
-                if read_bytes == 0 {
-                    Err(::std::io::ErrorKind::ConnectionAborted.into())
-                } else {
-                    Ok(read_line_macro_buffer)
+    ($reader:expr) => {
+        async {
+            let mut read_line_macro_buffer = String::new();
+            match $reader.read_line(&mut read_line_macro_buffer).await {
+                Ok(read_bytes) => {
+                    if read_bytes == 0 {
+                        Err(::std::io::ErrorKind::ConnectionAborted.into())
+                    } else {
+                        Ok(read_line_macro_buffer)
+                    }
                 }
+                Err(e) => Err(e),
             }
-            Err(e) => Err(e),
         }
-    }};
+    };
 }
 
 /// Write a string literal into `writer` as an [`crate::SmtpStr`]. Appends a line ending.

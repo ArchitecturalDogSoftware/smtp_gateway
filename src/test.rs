@@ -38,10 +38,10 @@ async fn test_listen() -> Result {
 
     let mut reader = BufReader::new(read_stream);
 
-    assert!(is_valid_server_greeting(&read_line!(reader)?));
+    assert!(is_valid_server_greeting(&read_line!(reader).await?));
 
     write_line!(write_stream, "HELO")?;
-    assert!(is_valid_helo_response(&read_line!(reader)?));
+    assert!(is_valid_helo_response(&read_line!(reader).await?));
 
     Ok(())
 }
