@@ -43,119 +43,19 @@
 #![warn(clippy::nursery, clippy::pedantic)]
 #![cfg_attr(debug_assertions, allow(clippy::missing_errors_doc))]
 
-use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-    net::{TcpListener, TcpStream},
-};
+use tokio::net::TcpListener;
 
+mod connection;
 pub mod str;
 #[cfg(test)]
 mod test;
 pub mod timeouts;
 
-const DOMAIN: &str = "example.com";
-
 pub async fn listen(listener: TcpListener) -> std::io::Result<()> {
     loop {
         let (stream, _) = listener.accept().await?;
-        tokio::spawn(handle_connection(stream));
+        tokio::spawn(connection::handle(stream));
     }
-}
-
-async fn handle_connection(mut stream: TcpStream) -> std::io::Result<()> {
-    /// Read a line out of `reader` or break with [`CloseReason`].
-    ///
-    /// Implicitly calls `.await`.
-    ///
-    /// # Breaks
-    ///
-    /// If `read_line` reads zero bytes, `break` with [`CloseReason::ClosedByClient`].
-    /// If `read_line` takes more than [`timeouts::SERVER_TIMEOUT`], break with
-    /// [`CloseReason::TimedOut`].
-    ///
-    /// # Errors
-    ///
-    /// - Any errors that could come out of the supplied reader's `read_line` function.
-    macro_rules! read_line_or_break {
-        ($reader:expr) => {
-            match ::tokio::time::timeout(
-                $crate::timeouts::SERVER_TIMEOUT,
-                $crate::read_line!($reader),
-            )
-            .await
-            {
-                Ok(result) => match result {
-                    Ok(line) => Ok(line),
-                    Err(err) => match err.kind() {
-                        ::std::io::ErrorKind::ConnectionAborted => {
-                            break CloseReason::ClosedByClient
-                        }
-                        err => Err(err),
-                    },
-                },
-                Err(elapsed) => break CloseReason::TimedOut(elapsed),
-            }
-        };
-    }
-
-    println!(
-        "Connection opened on {} by {}",
-        stream.local_addr()?,
-        stream.peer_addr()?
-    );
-
-    let (read_stream, mut write_stream) = stream.split();
-    let mut reader = BufReader::new(read_stream);
-
-    write_stream
-        .write_all(format!("220 {DOMAIN} SMTP Testing Service Ready\r\n").as_bytes())
-        .await?;
-
-    let close_reason = loop {
-        let line = read_line_or_break!(reader)?;
-        let (response, should_close) = handle_smtp_command(&line);
-
-        write_stream.write_all(response.as_bytes()).await?;
-
-        match should_close {
-            ShouldClose::Close(reason) => break reason,
-            ShouldClose::Keep => (),
-        }
-    };
-
-    println!(
-        "Connection on {} with {} closed ({close_reason:?})",
-        stream.local_addr()?,
-        stream.peer_addr()?
-    );
-
-    Ok(())
-}
-
-fn handle_smtp_command(line: &str) -> (&str, ShouldClose) {
-    // Trim whitespace from line
-    let trimmed = line.trim();
-
-    if trimmed == "QUIT" {
-        return ("221 Bye\r\n", ShouldClose::Close(CloseReason::Quit));
-    }
-
-    (line, ShouldClose::Keep)
-}
-
-#[derive(PartialEq, Eq, Debug)]
-enum ShouldClose {
-    Keep,
-    Close(CloseReason),
-}
-
-#[derive(PartialEq, Eq, Debug)]
-#[expect(dead_code)]
-enum CloseReason {
-    Quit,
-    Error,
-    TimedOut(tokio::time::error::Elapsed),
-    ClosedByClient,
 }
 
 /// Tests whether a string is a domain name as considered by SMTP ([RFC 5321, section
