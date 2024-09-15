@@ -22,6 +22,9 @@
 //! differentiate between these and a genuinely timed out session, [RFC 5321
 //! 4.5.3.2](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2) defines a list of
 //! timeouts in minutes.
+//!
+//! Notably, [`SERVER_TIMEOUT`] is the only timeout relevant to a server implementation. The
+//! timeouts used by clients are here for the sake of testing and thoroughness.
 
 /// Generate `const` items with [`std::time::Duration`] values in minutes, optionally including
 /// documentation comments.
@@ -43,21 +46,41 @@ macro_rules! minute_durations {
 
 minute_durations![
     /// Servers will sometimes accept TCP connections, but wait for spare processing to initiate
-    /// the SMTP session with the opening 220 message. This defines a minimum of how long a client
-    /// should wait after the connection is accept for the 220 reply.
+    /// the SMTP session with the opening `220` message. This defines a minimum of how long a
+    /// client should wait after the connection is accepted for the `220` reply.
     ///
     /// [RFC 5321 § 4.5.3.2.1](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.1).
     INITIAL_220_MESSAGE = 2,
+    /// The minimum length in minutes a client should wait for a reply after sending the `MAIL`
+    /// command.
+    ///
     /// [RFC 5321 § 4.5.3.2.2](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.2).
     MAIL = 5,
+    /// The minimum length in minutes a client should wait for a reply after sending the `RCPT`
+    /// command. Mailing lists and aliases take time to process, so this timeout may need to be
+    /// longer, depending on when those are processed.
+    ///
     /// [RFC 5321 § 4.5.3.2.3](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.3).
     RCPT = 5,
+    /// The minimum length in minutes a client should wait for the `354` reply after sending the
+    /// `DATA` command.
+    ///
     /// [RFC 5321 § 4.5.3.2.4](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.4).
     DATA_INITIALIZATION = 2,
+    /// The minimum length in minutes a client should wait for a response after sending a chunk of
+    /// data with TCP `send`.
+    ///
     /// [RFC 5321 § 4.5.3.2.5](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.5).
     DATA_BLOCK = 3,
+    /// The minimum length in minutes a client should wait for the `250` reply after sending
+    /// finishing sending all the data. A long delay is necessary here, as the server will need to
+    /// process and deliver the message, and prematurely ending it could result in duplicate
+    /// messages.
+    ///
     /// [RFC 5321 § 4.5.3.2.6](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.6).
     DATA_TERMINATION = 10,
+    /// The minimum length in minutes a server should wait for the next command from a client.
+    ///
     /// [RFC 5321 § 4.5.3.2.7](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.7).
     SERVER_TIMEOUT = 5,
 ];
