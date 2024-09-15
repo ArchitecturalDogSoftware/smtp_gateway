@@ -76,7 +76,7 @@ pub async fn handle(mut stream: TcpStream) -> std::io::Result<()> {
     let close_reason = loop {
         let line = read_line_or_break!(reader)?;
 
-        match handle_smtp_command(&mut write_stream, &line).await? {
+        match handle_smtp_command(&mut write_stream, line).await? {
             ShouldClose::Close(reason) => break reason,
             ShouldClose::Keep => (),
         }
@@ -98,12 +98,16 @@ pub async fn handle(mut stream: TcpStream) -> std::io::Result<()> {
 /// Whatever errors [`write_line`] may return.
 async fn handle_smtp_command(
     write_stream: &mut tokio::net::tcp::WriteHalf<'_>,
-    line: &str,
+    line: String,
 ) -> Result<ShouldClose, std::io::Error> {
-    // Trim whitespace from line
+    // Trim whitespace from line and extract the command
     let trimmed = line.trim();
+    let (command, parameters) = match trimmed.split_once(' ') {
+        Some((c, p)) => (c.to_uppercase(), Some(p)),
+        None => (trimmed.to_uppercase(), None),
+    };
 
-    if trimmed == "QUIT" {
+    if command == "QUIT" {
         write_line!(write_stream, "221 Bye")?;
         return Ok(ShouldClose::Close(CloseReason::Quit));
     }
