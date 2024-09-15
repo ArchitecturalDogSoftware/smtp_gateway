@@ -65,6 +65,8 @@ pub async fn listen(listener: TcpListener) -> std::io::Result<()> {
 async fn handle_connection(mut stream: TcpStream) -> std::io::Result<()> {
     /// Read a line out of `reader` or break with [`CloseReason`].
     ///
+    /// Implicitly calls `.await`.
+    ///
     /// # Breaks
     ///
     /// If `read_line` reads zero bytes, `break` with [`CloseReason::ClosedByClient`].
@@ -181,6 +183,8 @@ pub fn is_smtp_domain_name(str: &str) -> bool {
 
 /// Read a line out of `reader`.
 ///
+/// Returns a [`std::future::Future`], use with `.await`.
+///
 /// # Errors
 ///
 /// - Any errors that could come out of the supplied reader's `read_line` function.
@@ -204,7 +208,7 @@ macro_rules! read_line {
     };
 }
 
-/// Write a string literal into `writer` as an [`crate::SmtpStr`]. Appends a line ending.
+/// Write a string literal into `writer` as an [`crate::str::SmtpString`]. Appends a line ending.
 ///
 /// # Errors
 ///
