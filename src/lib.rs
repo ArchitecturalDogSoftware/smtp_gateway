@@ -15,6 +15,31 @@
 // You should have received a copy of the GNU Affero General Public License along with
 // smtp_gateway. If not, see <https://www.gnu.org/licenses/>.
 
+//! # smtp_gateway
+//!
+//! smtp_gateway is a library for receiving SMTP messages.
+//!
+//! # How It Works
+//!
+//! [`crate::listen`] accepts any incoming TCP connection and spawns a new task to handle it as an
+//! SMTP session. When an SMTP session finishes with a received message, it is passed to the
+//! consumer to handle.
+//!
+//! smtp_gateway accepts messages but it cannot send or relay messages. An SMTP gateway receives
+//! messages in SMTP and transform them for retransmission. smtp_gateway exists to handle the first
+//! part of this goal, and it is up to the consumer to handle transformation and retransmission.
+//!
+//! For a real example of what this looks like, see smtp_gateway_bot. This is what smtp_gateway was
+//! developed for, and can be found in the same repository as smtp_gateway:
+//!
+#![doc = concat!('<', env!("CARGO_PKG_REPOSITORY"), '>')]
+//!
+//! # Terminology
+//!
+//! smtp_gateway uses specific terminology (such as "client" and "server") as defined by [RFC 5321
+//! section 2.3](https://www.rfc-editor.org/rfc/rfc5321.html#section-2.3). Pull requests and issues
+//! to fix discrepancies are welcome.
+
 #![warn(clippy::nursery, clippy::pedantic)]
 #![cfg_attr(debug_assertions, allow(clippy::missing_errors_doc))]
 

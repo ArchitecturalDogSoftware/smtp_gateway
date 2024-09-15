@@ -15,23 +15,26 @@
 // You should have received a copy of the GNU Affero General Public License along with
 // smtp_gateway. If not, see <https://www.gnu.org/licenses/>.
 
-//! A collection of the minimum minutes that participant in an SMTP session should wait for a given
-//! action.
+//! A collection of the minimum amounts of time that participants in an SMTP session should wait
+//! for a reply.
 //!
-//! Per [RFC 5321 4.5.3.2](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2).
+//! Some amount of delays from transmission and processing are expected in an SMTP session. To
+//! differentiate between these and a genuinely timed out session, [RFC 5321
+//! 4.5.3.2](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2) defines a list of
+//! timeouts in minutes.
 
 /// Generate `const` items with [`std::time::Duration`] values in minutes, optionally including
 /// documentation comments.
 ///
-/// Does not account for leap seconds or similar shenanigans, it is exclusively 60 seconds per
-/// minute.
+/// Does not account for leap seconds or similar shenanigans. A "minute" is 60 of whatever
+/// [`std::time::Duration`] considers to be a "second."
 macro_rules! minute_durations {
         [$(
-            $( #[doc = $docs:expr] )*
+            $( #[$attr:meta] )*
             $label:ident = $minutes:expr
         ),+ ,] => {
             $(
-                $( #[doc = $docs] )*
+                $( #[$attr] )*
                 pub const $label: ::std::time::Duration =
                     ::std::time::Duration::from_secs($minutes * 60);
             )+
@@ -39,18 +42,22 @@ macro_rules! minute_durations {
     }
 
 minute_durations![
-    /// [RFC 5231 § 4.5.3.2.1](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.1).
+    /// Servers will sometimes accept TCP connections, but wait for spare processing to initiate
+    /// the SMTP session with the opening 220 message. This defines a minimum of how long a client
+    /// should wait after the connection is accept for the 220 reply.
+    ///
+    /// [RFC 5321 § 4.5.3.2.1](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.1).
     INITIAL_220_MESSAGE = 2,
-    /// [RFC 5231 § 4.5.3.2.2](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.2).
+    /// [RFC 5321 § 4.5.3.2.2](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.2).
     MAIL = 5,
-    /// [RFC 5231 § 4.5.3.2.3](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.3).
+    /// [RFC 5321 § 4.5.3.2.3](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.3).
     RCPT = 5,
-    /// [RFC 5231 § 4.5.3.2.4](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.4).
+    /// [RFC 5321 § 4.5.3.2.4](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.4).
     DATA_INITIALIZATION = 2,
-    /// [RFC 5231 § 4.5.3.2.5](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.5).
+    /// [RFC 5321 § 4.5.3.2.5](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.5).
     DATA_BLOCK = 3,
-    /// [RFC 5231 § 4.5.3.2.6](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.6).
+    /// [RFC 5321 § 4.5.3.2.6](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.6).
     DATA_TERMINATION = 10,
-    /// [RFC 5231 § 4.5.3.2.7](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.7).
+    /// [RFC 5321 § 4.5.3.2.7](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.2.7).
     SERVER_TIMEOUT = 5,
 ];
