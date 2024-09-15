@@ -15,13 +15,17 @@
 // You should have received a copy of the GNU Affero General Public License along with
 // smtp_gateway. If not, see <https://www.gnu.org/licenses/>.
 
+//! Handles TCP connections as SMTP sessions.
+//!
+//! See [`handle`].
+
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,
     time::error::Elapsed,
 };
 
-use crate::{write_fmt_line, write_line};
+use crate::{str::CRLF, write_fmt_line, write_line};
 
 const DOMAIN: &str = "example.com";
 
@@ -100,10 +104,30 @@ async fn handle_smtp_command(
     write_stream: &mut tokio::net::tcp::WriteHalf<'_>,
     line: String,
 ) -> Result<ShouldClose, std::io::Error> {
-    // Trim whitespace from line and extract the command
+    // RFC 5321 section 2.3.8 specifies that lines ending with anything other than `CRLF` must not
+    // be recognized.
+    //
+    // https://www.rfc-editor.org/rfc/rfc5321.html#section-2.3.8
+    if !line.ends_with(CRLF) {
+        write_line!(write_stream, "500 Syntax error - no trailing CRLF")?;
+        return Ok(ShouldClose::Keep); // Should this close the session?
+    }
+
+    // Trim whitespace from line.
+    //
+    // RFC 5321 section 4.1.1 recommends to allow for trailing whitespace.
+    // This trims leading whitespace as well, for the sake of Postel's Law.
+    //
+    // https://www.rfc-editor.org/rfc/rfc5321.html#section-4.1.1
     let trimmed = line.trim();
-    let (command, parameters) = match trimmed.split_once(' ') {
-        Some((c, p)) => (c.to_uppercase(), Some(p)),
+    // Extract the command per RFC 5321 section 2.4.
+    //
+    // Note that the mailbox-local part of an email address (ex. `smith` in `smith@example.com`) is
+    // the only case-sensitive part of an SMTP command, so `text` is not set to uppercase.
+    //
+    // https://www.rfc-editor.org/rfc/rfc5321.html#section-2.4
+    let (command, text) = match trimmed.split_once(' ') {
+        Some((c, t)) => (c.to_uppercase(), Some(t)),
         None => (trimmed.to_uppercase(), None),
     };
 
