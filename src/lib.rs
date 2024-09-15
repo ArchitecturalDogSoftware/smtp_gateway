@@ -51,6 +51,8 @@ pub mod str;
 mod test;
 pub mod timeouts;
 
+// This could return handles to tasks in an `async` iterator, where the consumer `await`s the next
+// handle.
 pub async fn listen(listener: TcpListener) -> std::io::Result<()> {
     loop {
         let (stream, _) = listener.accept().await?;
@@ -59,7 +61,7 @@ pub async fn listen(listener: TcpListener) -> std::io::Result<()> {
 }
 
 /// Tests whether a string is a domain name as considered by SMTP ([RFC 5321, section
-/// 2.3.5](https://www.rfc-editor.org/rfc/rfc5321.html#section-2.3.5))
+/// 2.3.5](https://www.rfc-editor.org/rfc/rfc5321.html#section-2.3.5)).
 ///
 /// Checks whether any character is string is not alphanumeric, a dash (`'-'`), or a period
 /// (`'.'`).
