@@ -123,3 +123,21 @@ macro_rules! write_line {
         }
     }};
 }
+
+/// Write a format statement into `writer` as an [`crate::str::SmtpString`]. Appends a line ending.
+///
+/// All but the first parameter are passed directly into [`format`].
+///
+/// # Errors
+///
+/// - [`std::io::ErrorKind::InvalidInput`] if passed invalid ASCII.
+/// - Any errors that could come out of the supplied writer's `write_all` function.
+#[macro_export]
+macro_rules! write_fmt_line {
+    ($writer:expr, $( $fmt:expr ),+) => {{
+        match $crate::str::SmtpString::new(&format!("{}\r\n", format!( $($fmt),+ ))) {
+            Ok(s) => $writer.write_all(s.as_bytes()).await,
+            Err(e) => Err(::std::io::Error::new(::std::io::ErrorKind::InvalidInput, e)),
+        }
+    }};
+}

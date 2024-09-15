@@ -18,10 +18,14 @@
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,
+    time::error::Elapsed,
 };
+
+use crate::{write_fmt_line, write_line};
 
 const DOMAIN: &str = "example.com";
 
+/// Handle a TCP connection as an SMTP session.
 pub async fn handle(mut stream: TcpStream) -> std::io::Result<()> {
     /// Read a line out of `reader` or break with [`CloseReason`].
     ///
@@ -67,17 +71,12 @@ pub async fn handle(mut stream: TcpStream) -> std::io::Result<()> {
     let (read_stream, mut write_stream) = stream.split();
     let mut reader = BufReader::new(read_stream);
 
-    write_stream
-        .write_all(format!("220 {DOMAIN} SMTP Testing Service Ready\r\n").as_bytes())
-        .await?;
+    write_fmt_line!(write_stream, "220 {DOMAIN} SMTP Testing Service Read")?;
 
     let close_reason = loop {
         let line = read_line_or_break!(reader)?;
-        let (response, should_close) = handle_smtp_command(&line);
 
-        write_stream.write_all(response.as_bytes()).await?;
-
-        match should_close {
+        match handle_smtp_command(&mut write_stream, &line).await? {
             ShouldClose::Close(reason) => break reason,
             ShouldClose::Keep => (),
         }
@@ -92,28 +91,45 @@ pub async fn handle(mut stream: TcpStream) -> std::io::Result<()> {
     Ok(())
 }
 
-fn handle_smtp_command(line: &str) -> (&str, ShouldClose) {
+/// Reply to a line from the client in an SMTP session.
+///
+/// # Errors
+///
+/// Whatever errors [`write_line`] may return.
+async fn handle_smtp_command(
+    write_stream: &mut tokio::net::tcp::WriteHalf<'_>,
+    line: &str,
+) -> Result<ShouldClose, std::io::Error> {
     // Trim whitespace from line
     let trimmed = line.trim();
 
     if trimmed == "QUIT" {
-        return ("221 Bye\r\n", ShouldClose::Close(CloseReason::Quit));
+        write_line!(write_stream, "221 Bye")?;
+        return Ok(ShouldClose::Close(CloseReason::Quit));
     }
 
-    (line, ShouldClose::Keep)
+    Ok(ShouldClose::Keep)
 }
 
+/// Indicates if and why a TCP connection should be closed.
 #[derive(PartialEq, Eq, Debug)]
 enum ShouldClose {
+    /// The TCP connection should be kept open.
     Keep,
+    /// The TCP connection should be closed because [`CloseReason`].
     Close(CloseReason),
 }
 
+/// Indicates why a TCP connection should be closed.
 #[derive(PartialEq, Eq, Debug)]
 #[expect(dead_code)]
 enum CloseReason {
+    /// The SMTP client requested to quit the session.
     Quit,
+    /// An error occurred in the implementation.
     Error,
-    TimedOut(tokio::time::error::Elapsed),
+    /// More time [`Elapsed`] than [`crate::timeouts::SERVER_TIMEOUT`] specifies.
+    TimedOut(Elapsed),
+    /// The TCP connection was forcefully ended by the client.
     ClosedByClient,
 }
