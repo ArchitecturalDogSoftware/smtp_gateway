@@ -27,7 +27,7 @@ use tokio::{
     time::error::Elapsed,
 };
 
-use crate::{str::CRLF, write_fmt_line, write_line};
+use crate::write_fmt_line;
 
 const DOMAIN: &str = "example.com";
 
@@ -68,11 +68,27 @@ pub async fn handle(mut stream: TcpStream) -> std::io::Result<()> {
         };
     }
 
-    println!(
-        "Connection opened on {} by {}",
-        stream.local_addr()?,
-        stream.peer_addr()?
-    );
+    // The errors involved here are not documented. After an extraordinary romp through `tokio`,
+    // `mio`, `std`, `core`, and `libc`, I have identified two sources of errors.
+    //
+    // On Unix, this all wraps `getsockname` and `getpeername` from the C standard library.
+    // Other platforms may vary; pull requests to update documentation are welcome.
+    //
+    // Errors come from two places:
+    //
+    // - Errors from `get*name` themselves. If `get*name` returns a status code of `-1`, the
+    //   will retrieved by [`std::io::Error::last_os_error`].
+    // - Errors from malformed output by `get*name`. If `get*name` receives something other than an
+    //   IPv4 or IPv6 address, it will return a [`std::io::Error`] with
+    //   [`std::io::ErrorKind::InvalidInput`] and `"invalid argument"`.
+    //
+    // POSIX.1-2008:
+    //
+    // - <https://pubs.opengroup.org/onlinepubs/9799919799.2024edition/functions/getsockname.html>
+    // - <https://pubs.opengroup.org/onlinepubs/9799919799.2024edition/functions/getpeername.html>
+    let local_socket = stream.local_addr()?;
+    let client_socket = stream.peer_addr()?;
+    println!("Connection opened on {local_socket} by {client_socket}");
 
     let (read_stream, mut write_stream) = stream.split();
     let mut reader = BufReader::new(read_stream);
@@ -88,12 +104,7 @@ pub async fn handle(mut stream: TcpStream) -> std::io::Result<()> {
         }
     };
 
-    println!(
-        "Connection on {} with {} closed ({close_reason:?})",
-        stream.local_addr()?,
-        stream.peer_addr()?
-    );
-
+    println!("Connection on {local_socket} with {client_socket} closed ({close_reason:?})");
     Ok(())
 }
 

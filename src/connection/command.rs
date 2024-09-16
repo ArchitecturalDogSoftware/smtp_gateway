@@ -35,7 +35,12 @@ pub async fn handle(
     write_stream: &mut tokio::net::tcp::WriteHalf<'_>,
     line: String,
 ) -> Result<ShouldClose, std::io::Error> {
-    /// Send an 500 syntax error reply into `write_stream` and return with [`ShouldClose::Keep`].
+    /// Send a `"500 Syntax error - {}"` reply into `write_stream` and return with
+    /// [`ShouldClose::Keep`].
+    ///
+    /// # Errors
+    ///
+    /// - Any errors that could come out of the supplied reader's `read_line` function.
     macro_rules! err_and_return {
         ( $write_stream:expr, $error:expr ) => {{
             $crate::write_fmt_line!($write_stream, "500 Syntax error - {}", $error)?;
@@ -153,37 +158,56 @@ fn parse(mut line: AsciiString) -> Result<Command, CommandError> {
     })
 }
 
+/// One line of an SMTP command.
 struct Command {
+    /// The entire line, unmodified except for the [`Self::verb`] range being set to uppercase.
     line: AsciiString,
+    /// The range over [`Self::line`] without leading and trailing whitespace.
     trimmed: Range<usize>,
+    /// The range over [`Self::line`] containing the verb of the command.
     verb: Range<usize>,
+    /// The range over [`Self::line`] containing the text of the command.
     text: Option<Range<usize>>,
+    /// The [`MultiLine`] type of the command.
+    ///
+    /// Derived from the character that [`Self::verb`] and [`Self::text`] were split by.
     multiline: MultiLine,
 }
 
+// Consuming implementation is not complete
+#[expect(dead_code)]
 impl Command {
+    /// Get the entire line as a string slice, unmodified unmodified except for the [`Self::verb`]
+    /// range being set to uppercase.
     pub fn line(&self) -> &AsciiStr {
         self.line.as_ref()
     }
 
+    /// Get the line with leading and trailing whitespace stripped as a string slice.
     pub fn trimmed(&self) -> &AsciiStr {
         self.get(&self.trimmed)
     }
 
+    /// Get the verb of the command as an uppercase string slice.
     pub fn verb(&self) -> &AsciiStr {
         self.get(&self.verb)
     }
 
+    /// Get the text of the command as a string slice.
     pub fn text(&self) -> Option<&AsciiStr> {
         let range = self.text.as_ref()?;
 
         Some(self.get(range))
     }
 
-    pub fn multiline(&self) -> MultiLine {
+    /// Get the [`MultiLine`] type of the command.
+    ///
+    /// Derived from the character that [`Self::verb`] and [`Self::text`] were split by.
+    pub const fn multiline(&self) -> MultiLine {
         self.multiline
     }
 
+    /// Get a range of the internal [`AsciiString`] as a string slice.
     fn get(&self, range: &Range<usize>) -> &AsciiStr {
         &self.line[range.clone()]
     }
@@ -200,8 +224,9 @@ enum MultiLine {
 
 impl MultiLine {
     /// Get the character used to split the verb and text of an SMTP command.
+    #[expect(dead_code)]
     #[must_use]
-    pub const fn split(&self) -> char {
+    pub const fn split(self) -> char {
         match self {
             Self::LastLine => ' ',
             Self::HasNext => '-',
@@ -221,8 +246,8 @@ enum CommandError {
 impl Display for CommandError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            CommandError::Empty => "empty command",
-            CommandError::OnlyWhitespace => "command consists only of whitespace",
+            Self::Empty => "empty command",
+            Self::OnlyWhitespace => "command consists only of whitespace",
         })
     }
 }
