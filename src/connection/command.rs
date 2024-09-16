@@ -97,6 +97,7 @@ fn parse(mut line: AsciiString) -> Result<Command, CommandError> {
         // Convert the indices into a range.
         let range = leading_whitespace_len..trailing_whitespace_len;
 
+        // If `end < start` or `start == end`.
         if range.is_empty() {
             None
         } else {
@@ -107,31 +108,34 @@ fn parse(mut line: AsciiString) -> Result<Command, CommandError> {
     /// Extract the command per RFC 5321 section 2.4.
     ///
     /// <https://www.rfc-editor.org/rfc/rfc5321.html#section-2.4>
-    fn split_command(command: &AsciiStr) -> (Range<usize>, Option<Range<usize>>) {
-        match command.as_str().split_once([' ', '-']) {
+    fn split_command(command: &AsciiStr) -> (Range<usize>, Option<Range<usize>>, MultiLine) {
+        let (verb, text) = match command.as_str().split_once([' ', '-']) {
             Some((verb, _text)) => (0..verb.len(), Some(verb.len()..command.len())),
             None => (0..command.len(), None),
-        }
+        };
+
+        let multiline_type = match command
+            .chars()
+            .nth(verb.len())
+            .expect("a string must contain a substring of itself")
+        {
+            ascii::AsciiChar::Minus => MultiLine::HasNext,
+            ascii::AsciiChar::Space => MultiLine::LastLine,
+            _ => unreachable!("`command` will only split on `' '` or `'-'`"),
+        };
+
+        (verb, text, multiline_type)
     }
 
     if line.is_empty() {
         return Err(CommandError::Empty);
     }
 
-    // Will only ever be because of whitespace because it is checked for emptiness earlier.
+    // Will not error because of emptiness, as this was already checked above.
     let trimmed = trim(&line).ok_or(CommandError::OnlyWhitespace)?;
     let trimmed_str = &line[trimmed.clone()];
 
-    let (verb, text) = split_command(trimmed_str);
-    let multiline = match trimmed_str
-        .chars()
-        .nth(verb.len())
-        .expect("a string must contain a substring of itself")
-    {
-        ascii::AsciiChar::Minus => MultiLine::HasNext,
-        ascii::AsciiChar::Space => MultiLine::LastLine,
-        _ => unreachable!("`command` will only split on `' '` or `'-'`"),
-    };
+    let (verb, text, multiline) = split_command(trimmed_str);
 
     // Make the command verb uppercase for standardized comparison.
     //
