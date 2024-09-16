@@ -15,11 +15,11 @@
 // You should have received a copy of the GNU Affero General Public License along with
 // smtp_gateway. If not, see <https://www.gnu.org/licenses/>.
 
-mod command;
-
 //! Handles TCP connections as SMTP sessions.
 //!
 //! See [`handle`].
+
+mod command;
 
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
