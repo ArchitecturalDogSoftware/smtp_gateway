@@ -18,7 +18,10 @@
 //!
 //! See [`handle`].
 
-use std::{fmt::Display, ops::Range};
+use std::{
+    fmt::{Debug, Display},
+    ops::Range,
+};
 
 use ascii::{AsciiStr, AsciiString, IntoAsciiString};
 use tokio::io::AsyncWriteExt;
@@ -115,17 +118,19 @@ fn parse(mut line: AsciiString) -> Result<Command, CommandError> {
     /// <https://www.rfc-editor.org/rfc/rfc5321.html#section-2.4>
     fn split_command(command: &AsciiStr) -> (Range<usize>, Option<Range<usize>>, MultiLine) {
         let (verb, text) = match command.as_str().split_once([' ', '-']) {
-            Some((verb, _text)) => (0..verb.len(), Some(verb.len()..command.len())),
+            Some((verb, _text)) => (
+                // From the start until the last byte of verb.
+                0..verb.len(),
+                // `verb.len()` would point towards the character that was split on, so start at
+                // the byte *after* that and end at the last byte.
+                Some(verb.len() + 1..command.len()),
+            ),
             None => (0..command.len(), None),
         };
 
-        let multiline_type = match command
-            .chars()
-            .nth(verb.len())
-            .expect("a string must contain a substring of itself")
-        {
-            ascii::AsciiChar::Minus => MultiLine::HasNext,
-            ascii::AsciiChar::Space => MultiLine::LastLine,
+        let multiline_type = match command.chars().nth(verb.len()) {
+            Some(ascii::AsciiChar::Minus) => MultiLine::HasNext,
+            Some(ascii::AsciiChar::Space) | None => MultiLine::LastLine,
             _ => unreachable!("`command` will only split on `' '` or `'-'`"),
         };
 
@@ -141,6 +146,18 @@ fn parse(mut line: AsciiString) -> Result<Command, CommandError> {
     let trimmed_str = &line[trimmed.clone()];
 
     let (verb, text, multiline) = split_command(trimmed_str);
+
+    // These ranges were obtained using the trimmed string instead of the actual line. This
+    // recalibrates the ranges to point to their locations on the actual line instead of on the
+    // trimmed string.
+    let adjust_for_trim = |mut range: Range<usize>| {
+        range.start += trimmed.start;
+        range.end += trimmed.start;
+
+        range
+    };
+    let verb = adjust_for_trim(verb);
+    let text = text.map(adjust_for_trim);
 
     // Make the command verb uppercase for standardized comparison.
     //
@@ -159,6 +176,7 @@ fn parse(mut line: AsciiString) -> Result<Command, CommandError> {
 }
 
 /// One line of an SMTP command.
+#[derive(PartialEq, Eq, Clone)]
 struct Command {
     /// The entire line, unmodified except for the [`Self::verb`] range being set to uppercase.
     line: AsciiString,
@@ -175,7 +193,6 @@ struct Command {
 }
 
 // Consuming implementation is not complete
-#[expect(dead_code)]
 impl Command {
     /// Get the entire line as a string slice, unmodified unmodified except for the [`Self::verb`]
     /// range being set to uppercase.
@@ -213,6 +230,23 @@ impl Command {
     }
 }
 
+impl Debug for Command {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Command")
+            .field("line", &self.line)
+            .field("line()", &self.line())
+            .field("trimmed", &self.trimmed)
+            .field("trimmed()", &self.trimmed())
+            .field("verb", &self.verb)
+            .field("verb()", &self.verb())
+            .field("text", &self.text)
+            .field("text()", &self.text())
+            .field("multiline", &self.multiline)
+            .field("multiline()", &self.multiline())
+            .finish()
+    }
+}
+
 /// Indicates if the parsed command is the last line to be parsed before replying.
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
 enum MultiLine {
@@ -235,7 +269,7 @@ impl MultiLine {
 }
 
 /// Possible error states encountered when trying to convert a line into a [`Command`].
-#[derive(PartialEq, Eq, Debug, Copy, Clone)]
+#[derive(PartialEq, Eq, Copy, Clone)]
 enum CommandError {
     /// Function was passed a line that is empty.
     Empty,
@@ -249,5 +283,89 @@ impl Display for CommandError {
             Self::Empty => "empty command",
             Self::OnlyWhitespace => "command consists only of whitespace",
         })
+    }
+}
+
+impl Debug for CommandError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self} at {} {}", file!(), line!())
+    }
+}
+
+impl std::error::Error for CommandError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        None
+    }
+
+    fn description(&self) -> &str {
+        "description() is deprecated; use Display"
+    }
+
+    fn cause(&self) -> Option<&dyn std::error::Error> {
+        self.source()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use ascii::AsAsciiStr;
+
+    use super::*;
+
+    type Result = std::result::Result<(), Box<dyn std::error::Error>>;
+
+    #[test]
+    fn test_command_parsing() -> Result {
+        let command = parse("  foo bar baz bim  \r\n".into_ascii_string()?)?;
+
+        // Tests that it constructs the right object.
+        assert_eq!(
+            command,
+            Command {
+                line: "  FOO bar baz bim  \r\n".into_ascii_string()?,
+                trimmed: 2..17,    // `"FOO bar baz bim"`.
+                verb: 2..5,        // "`FOO`".
+                text: Some(6..17), // "`bar baz bim`".
+                multiline: MultiLine::LastLine,
+            }
+        );
+
+        // Tests that it produces the right strings.
+        assert_eq!(command.line(), "  FOO bar baz bim  \r\n".as_ascii_str()?);
+        assert_eq!(command.trimmed(), "FOO bar baz bim".as_ascii_str()?);
+        assert_eq!(command.verb(), "FOO".as_ascii_str()?);
+        assert_eq!(command.text(), Some("bar baz bim".as_ascii_str()?));
+
+        // Tests that it does not perform any `CRLF` checks.
+        assert_eq!(
+            parse("foo bar\n".into_ascii_string()?)?.line(),
+            "FOO bar\n".as_ascii_str()?
+        );
+
+        // Test for handling of no text.
+        assert_eq!(
+            parse("foo\r\n".into_ascii_string()?)?,
+            Command {
+                line: "FOO\r\n".into_ascii_string()?,
+                trimmed: 0..3,
+                verb: 0..3,
+                text: None,
+                multiline: MultiLine::LastLine,
+            }
+        );
+
+        // Test that having a space but no text after the verb still counts as no text.
+        assert_eq!(
+            parse("foo \r\n".into_ascii_string()?)?,
+            Command {
+                line: "FOO \r\n".into_ascii_string()?,
+                trimmed: 0..3,
+                verb: 0..3,
+                text: None,
+                multiline: MultiLine::LastLine,
+            }
+        );
+
+        Ok(())
     }
 }
