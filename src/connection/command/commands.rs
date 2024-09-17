@@ -48,7 +48,7 @@ macro_rules! syntax_err_and_return {
 ///
 /// # Errors
 ///
-/// [`std::io::Error`] from [`AsyncWriteExt::write_all`] on [`tokio::net::TcpStream`].
+/// - [`std::io::Error`] from [`AsyncWriteExt::write_all`] on [`tokio::net::TcpStream`].
 pub async fn unrecognized(write_stream: &mut WriteHalf<'_>, _: Command) -> Result<ShouldClose> {
     write_fmt_line!(write_stream, "500 Command not recognized")?;
 
@@ -63,7 +63,7 @@ pub async fn unrecognized(write_stream: &mut WriteHalf<'_>, _: Command) -> Resul
 ///
 /// # Errors
 ///
-/// [`std::io::Error`] from [`AsyncWriteExt::write_all`] on [`tokio::net::TcpStream`].
+/// - [`std::io::Error`] from [`AsyncWriteExt::write_all`] on [`tokio::net::TcpStream`].
 pub async fn not_implemented(write_stream: &mut WriteHalf<'_>, _: Command) -> Result<ShouldClose> {
     write_fmt_line!(write_stream, "502 Command not implemented")?;
 
@@ -76,7 +76,7 @@ pub async fn not_implemented(write_stream: &mut WriteHalf<'_>, _: Command) -> Re
 ///
 /// # Errors
 ///
-/// [`std::io::Error`] from [`AsyncWriteExt::write_all`] on [`tokio::net::TcpStream`].
+/// - [`std::io::Error`] from [`AsyncWriteExt::write_all`] on [`tokio::net::TcpStream`].
 pub async fn hello(write_stream: &mut WriteHalf<'_>, command: Command) -> Result<ShouldClose> {
     /// Parse out the domain name or address literal from the start of the text of a command.
     ///
@@ -130,7 +130,7 @@ pub async fn hello(write_stream: &mut WriteHalf<'_>, command: Command) -> Result
 ///
 /// # Errors
 ///
-/// [`std::io::Error`] from [`AsyncWriteExt::write_all`] on [`tokio::net::TcpStream`].
+/// - [`std::io::Error`] from [`AsyncWriteExt::write_all`] on [`tokio::net::TcpStream`].
 pub async fn quit(write_stream: &mut WriteHalf<'_>, _: Command) -> Result<ShouldClose> {
     write_line!(write_stream, "221 Bye")?;
     Ok(ShouldClose::Close(CloseReason::Quit))
