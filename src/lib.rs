@@ -53,6 +53,7 @@ pub mod timeouts;
 
 // This could return handles to tasks in an `async` iterator, where the consumer `await`s the next
 // handle.
+/// Listen on a port for incoming TCP connections and handle them as SMTP sessions.
 pub async fn listen(listener: TcpListener) -> std::io::Result<()> {
     loop {
         let (stream, _) = listener.accept().await?;

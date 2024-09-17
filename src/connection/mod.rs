@@ -32,6 +32,17 @@ use crate::write_fmt_line;
 const DOMAIN: &str = "example.com";
 
 /// Handle a TCP connection as an SMTP session.
+///
+/// # Errors
+///
+/// This function will return [`std::io::Error`] from a variety of sources:
+///
+/// - I/O errors from [`AsyncWriteExt::write_all`] on [`TcpStream`].
+/// - I/O and UTF-8 errors from [`AsyncBufReadExt::read_line`] on [`BufReader<TcpStream>`].
+/// - I/O errors encountered in [`TcpStream::local_addr`] amd [`TcpStream::peer_addr`].
+///     - On POSIX, these come from `getsockname` and `getpeername` from the C standard library.
+///       If these return explicit errors or malformed output, this will be bubbled up through
+///       [`std::io::Error`]. For more details, see the source code for this function.
 pub async fn handle(mut stream: TcpStream) -> std::io::Result<()> {
     /// Read a line out of `reader` or break with [`CloseReason`].
     ///

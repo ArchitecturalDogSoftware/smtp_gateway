@@ -30,11 +30,11 @@ use crate::{str::CRLF, write_line};
 ///
 /// # Errors
 ///
-/// Whatever errors [`write_line`] may return.
+/// [`std::io::Error`] from [`AsyncWriteExt::write_all`] on [`tokio::net::TcpStream`].
 pub async fn handle(
     write_stream: &mut tokio::net::tcp::WriteHalf<'_>,
     line: String,
-) -> Result<ShouldClose, std::io::Error> {
+) -> std::io::Result<ShouldClose> {
     /// Send a `"500 Syntax error - {}"` reply into `write_stream` and return with
     /// [`ShouldClose::Keep`].
     ///
