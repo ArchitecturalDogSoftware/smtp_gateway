@@ -18,6 +18,7 @@
 /// An SMTP message.
 ///
 /// This will be expanded as the implementation progresses.
+#[allow(dead_code)]
 pub struct Message {
     data: String,
 }

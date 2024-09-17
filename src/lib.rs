@@ -43,7 +43,11 @@
 #![warn(clippy::nursery, clippy::pedantic)]
 #![cfg_attr(debug_assertions, allow(clippy::missing_errors_doc))]
 
-use tokio::net::TcpListener;
+use std::io::Result;
+
+use async_stream::try_stream;
+use futures_core::stream::Stream;
+use tokio::{net::TcpListener, task::JoinHandle};
 
 mod connection;
 mod message;
@@ -53,13 +57,22 @@ mod test;
 pub mod timeouts;
 pub use message::Message;
 
+pub type Session = JoinHandle<Result<()>>;
+
 // This could return handles to tasks in an `async` iterator, where the consumer `await`s the next
 // handle.
 /// Listen on a port for incoming TCP connections and handle them as SMTP sessions.
-pub async fn listen(listener: TcpListener) -> std::io::Result<()> {
-    loop {
-        let (stream, _) = listener.accept().await?;
-        tokio::spawn(connection::handle(stream));
+///
+/// # Errors
+///
+/// - [`std::io::Error`] from [`tokio::net::TcpListener::accept`].
+/// - For I/O errors from a [`Session`], see [`connection::handle`].
+pub fn listen(listener: TcpListener) -> impl Stream<Item = Result<Session>> {
+    try_stream! {
+        loop {
+            let (stream, _) = listener.accept().await?;
+            yield tokio::spawn(connection::handle(stream));
+        }
     }
 }
 
