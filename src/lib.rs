@@ -46,10 +46,12 @@
 use tokio::net::TcpListener;
 
 mod connection;
+mod message;
 pub mod str;
 #[cfg(test)]
 mod test;
 pub mod timeouts;
+pub use message::Message;
 
 // This could return handles to tasks in an `async` iterator, where the consumer `await`s the next
 // handle.
