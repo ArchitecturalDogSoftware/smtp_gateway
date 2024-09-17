@@ -27,9 +27,11 @@ use std::{
 use ascii::{AsciiStr, AsciiString, IntoAsciiString};
 use tokio::io::AsyncWriteExt;
 
-use super::{CloseReason, ShouldClose};
-use crate::{str::CRLF, write_line};
+use super::ShouldClose;
+use crate::str::CRLF;
 
+#[macro_use]
+mod commands;
 #[cfg(test)]
 mod test;
 
@@ -42,25 +44,12 @@ pub async fn handle(
     write_stream: &mut tokio::net::tcp::WriteHalf<'_>,
     line: String,
 ) -> std::io::Result<ShouldClose> {
-    /// Send a `"500 Syntax error - {}"` reply into `write_stream` and return with
-    /// [`ShouldClose::Keep`].
-    ///
-    /// # Errors
-    ///
-    /// - Any errors that could come out of the supplied reader's `read_line` function.
-    macro_rules! err_and_return {
-        ( $write_stream:expr, $error:expr ) => {{
-            $crate::write_fmt_line!($write_stream, "500 Syntax error - {}", $error)?;
-            return Ok(ShouldClose::Keep); // Should this close the connection?
-        }};
-    }
-
     // RFC 5321 section 2.3.8 specifies that lines ending with anything other than `CRLF` must not
     // be recognized.
     //
     // https://www.rfc-editor.org/rfc/rfc5321.html#section-2.3.8
     if !line.ends_with(CRLF) {
-        err_and_return!(write_stream, "no trailing CRLF");
+        syntax_err_and_return!(write_stream, "no trailing CRLF");
     }
 
     // RFC 5321 uses US-ASCII, specifically ANSI X3.4-1968 (reference 6).
@@ -69,22 +58,30 @@ pub async fn handle(
     //
     // https://www.rfc-editor.org/rfc/rfc5321.html#ref-6
     let Ok(line) = line.into_ascii_string() else {
-        err_and_return!(write_stream, "invalid character");
+        syntax_err_and_return!(write_stream, "invalid character encoding");
     };
 
     let command = match parse(line) {
         Ok(c) => c,
-        Err(e) => err_and_return!(write_stream, e),
+        Err(e) => syntax_err_and_return!(write_stream, e),
     };
 
-    let verb = command.verb();
-
-    if verb == "QUIT" {
-        write_line!(write_stream, "221 Bye")?;
-        return Ok(ShouldClose::Close(CloseReason::Quit));
+    macro_rules! command {
+        ($command:ident) => {
+            commands::$command(write_stream, command).await
+        };
     }
 
-    Ok(ShouldClose::Keep)
+    // Currently targeting section the minimum implementation set of [RFC 5321 section
+    // 4.5.1](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.1).
+    match command.verb().as_str() {
+        "HELO" => command!(hello),
+        "QUIT" => command!(quit),
+        "EHLO" | "MAIL" | "RCPT" | "DATA" | "RSET" | "NOOP" | "VRFY" => {
+            command!(not_implemented)
+        }
+        _ => command!(unrecognized),
+    }
 }
 
 /// Parse a line as a command.
