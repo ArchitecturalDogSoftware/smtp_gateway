@@ -44,10 +44,14 @@ pub async fn handle(
     write_stream: &mut tokio::net::tcp::WriteHalf<'_>,
     line: String,
 ) -> std::io::Result<ShouldClose> {
+    if line.trim().is_empty() {
+        return Ok(ShouldClose::Keep);
+    }
+
     // RFC 5321 section 2.3.8 specifies that lines ending with anything other than `CRLF` must not
     // be recognized.
     //
-    // https://www.rfc-editor.org/rfc/rfc5321.html#section-2.3.8
+    // <https://www.rfc-editor.org/rfc/rfc5321.html#section-2.3.8>
     if !line.ends_with(CRLF) {
         syntax_err_and_return!(write_stream, "no trailing CRLF");
     }
@@ -56,7 +60,7 @@ pub async fn handle(
     // As far as I can tell, [`std::ascii:Char`] upholds a standard that is functionally equivalent
     // for the purposes of this library.
     //
-    // https://www.rfc-editor.org/rfc/rfc5321.html#ref-6
+    // <https://www.rfc-editor.org/rfc/rfc5321.html#ref-6>
     let Ok(line) = line.into_ascii_string() else {
         syntax_err_and_return!(write_stream, "invalid character encoding");
     };

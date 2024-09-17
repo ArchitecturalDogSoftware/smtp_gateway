@@ -104,7 +104,7 @@ pub async fn handle(mut stream: TcpStream) -> std::io::Result<()> {
     let (read_stream, mut write_stream) = stream.split();
     let mut reader = BufReader::new(read_stream);
 
-    write_fmt_line!(write_stream, "220 {DOMAIN} SMTP Testing Service Read")?;
+    write_fmt_line!(write_stream, "220 {DOMAIN} SMTP testing service ready")?;
 
     let close_reason = loop {
         let line = read_line_or_break!(reader)?;
