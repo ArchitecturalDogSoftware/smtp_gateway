@@ -107,8 +107,9 @@ pub async fn hello(write_stream: &mut WriteHalf<'_>, command: Command) -> Result
         };
 
         Ok(
-            // From the `'['` at the start of the text until the `']'` after `literal`
-            &command_text[0..=literal.len()],
+            // From the `'['` at the start of the text until the `']'` after `literal`.
+            // Ending is offset by 1 to account for the trimming of the '`[`'.
+            &command_text[0..=1 + literal.len()],
         )
     }
 
