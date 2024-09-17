@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Copyright © 2024 RemasteredArch
 //
@@ -28,6 +29,9 @@ use tokio::io::AsyncWriteExt;
 
 use super::{CloseReason, ShouldClose};
 use crate::{str::CRLF, write_line};
+
+#[cfg(test)]
+mod test;
 
 /// Reply to a line from the client in an SMTP session.
 ///
@@ -303,69 +307,5 @@ impl std::error::Error for CommandError {
 
     fn cause(&self) -> Option<&dyn std::error::Error> {
         self.source()
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use ascii::AsAsciiStr;
-
-    use super::*;
-
-    type Result = std::result::Result<(), Box<dyn std::error::Error>>;
-
-    #[test]
-    fn test_command_parsing() -> Result {
-        let command = parse("  foo bar baz bim  \r\n".into_ascii_string()?)?;
-
-        // Tests that it constructs the right object.
-        assert_eq!(
-            command,
-            Command {
-                line: "  FOO bar baz bim  \r\n".into_ascii_string()?,
-                trimmed: 2..17,    // `"FOO bar baz bim"`.
-                verb: 2..5,        // "`FOO`".
-                text: Some(6..17), // "`bar baz bim`".
-                multiline: MultiLine::LastLine,
-            }
-        );
-
-        // Tests that it produces the right strings.
-        assert_eq!(command.line(), "  FOO bar baz bim  \r\n".as_ascii_str()?);
-        assert_eq!(command.trimmed(), "FOO bar baz bim".as_ascii_str()?);
-        assert_eq!(command.verb(), "FOO".as_ascii_str()?);
-        assert_eq!(command.text(), Some("bar baz bim".as_ascii_str()?));
-
-        // Tests that it does not perform any `CRLF` checks.
-        assert_eq!(
-            parse("foo bar\n".into_ascii_string()?)?.line(),
-            "FOO bar\n".as_ascii_str()?
-        );
-
-        // Test for handling of no text.
-        assert_eq!(
-            parse("foo\r\n".into_ascii_string()?)?,
-            Command {
-                line: "FOO\r\n".into_ascii_string()?,
-                trimmed: 0..3,
-                verb: 0..3,
-                text: None,
-                multiline: MultiLine::LastLine,
-            }
-        );
-
-        // Test that having a space but no text after the verb still counts as no text.
-        assert_eq!(
-            parse("foo \r\n".into_ascii_string()?)?,
-            Command {
-                line: "FOO \r\n".into_ascii_string()?,
-                trimmed: 0..3,
-                verb: 0..3,
-                text: None,
-                multiline: MultiLine::LastLine,
-            }
-        );
-
-        Ok(())
     }
 }
