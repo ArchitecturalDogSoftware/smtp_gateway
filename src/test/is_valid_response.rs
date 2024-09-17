@@ -33,7 +33,7 @@ pub fn server_greeting(str: &str) -> bool {
 }
 
 pub fn helo(str: &str) -> bool {
-    smtp_line(str) && todo!()
+    smtp_line(str) && str.starts_with("250")
 }
 
 /// Checks if the server's response to the `QUIT` command matches [RFC 5321, section

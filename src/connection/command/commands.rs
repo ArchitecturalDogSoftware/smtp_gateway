@@ -19,13 +19,14 @@
 
 use std::io::Result;
 
+use ascii::{AsAsciiStr, AsciiStr, AsciiString, IntoAsciiString};
 use tokio::{io::AsyncWriteExt, net::tcp::WriteHalf};
 
 use super::{
     super::{CloseReason, ShouldClose},
     Command,
 };
-use crate::{write_fmt_line, write_line};
+use crate::{connection::DOMAIN, write_fmt_line, write_line};
 
 /// Send a `"500 Syntax error - {}"` reply into `write_stream` and return with
 /// [`ShouldClose::Keep`].
@@ -77,7 +78,50 @@ pub async fn not_implemented(write_stream: &mut WriteHalf<'_>, _: Command) -> Re
 ///
 /// [`std::io::Error`] from [`AsyncWriteExt::write_all`] on [`tokio::net::TcpStream`].
 pub async fn hello(write_stream: &mut WriteHalf<'_>, command: Command) -> Result<ShouldClose> {
-    todo!()
+    /// Parse out the domain name or address literal from the start of the text of a command.
+    ///
+    /// [RFC 5321 section 4.1.3](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.1.3).
+    ///
+    /// # Errors
+    ///
+    /// - [`AsciiStr`] when a syntax error is encountered.
+    fn domain_or_literal(
+        command_text: &AsciiStr,
+    ) -> std::result::Result<&ascii::AsciiStr, &ascii::AsciiStr> {
+        let as_str = command_text.as_str();
+
+        let Some(literal) = as_str.strip_prefix('[') else {
+            // Treat it as a domain name
+            return Ok(match as_str.split_once(' ') {
+                Some((domain, _)) => domain
+                    .as_ascii_str()
+                    .expect("`as_str` is derived from an `&AsciiStr`."),
+                None => command_text,
+            });
+        };
+        let Some((literal, _)) = literal.split_once(']') else {
+            return Err("unterminated '[' in address literal"
+                .as_ascii_str()
+                .expect("written in code as ASCII"));
+        };
+
+        Ok(
+            // From the `'['` at the start of the text until the `']'` after `literal`
+            &command_text[0..=literal.len()],
+        )
+    }
+
+    let client = match command.text() {
+        Some(t) => match domain_or_literal(t) {
+            Ok(d) => d.as_str(),
+            Err(e) => syntax_err_and_return!(write_stream, e),
+        },
+        None => "client",
+    };
+
+    write_fmt_line!(write_stream, "250 {DOMAIN} greets {client}")?;
+
+    Ok(ShouldClose::Keep)
 }
 
 /// Reply to the quit (`QUIT`) command from a client.
