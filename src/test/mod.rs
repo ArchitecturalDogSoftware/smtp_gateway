@@ -18,13 +18,14 @@
 use std::error::Error;
 
 use futures_util::{pin_mut, StreamExt};
-
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::{TcpListener, TcpStream},
 };
 
 use crate::{read_line, write_line};
+
+mod is_valid_response;
 
 type Result = std::result::Result<(), Box<dyn Error>>;
 
@@ -84,34 +85,4 @@ async fn test_listen() -> Result {
     assert!(is_valid_response::quit(&read_line!(reader).await?));
 
     Ok(())
-}
-
-mod is_valid_response {
-
-    /// Checks whether a string is ASCII and ends with `CRLF`.
-    ///
-    /// [RFC 5321](https://www.rfc-editor.org/rfc/rfc5321.html) requires that only US-ASCII character
-    /// encoding (sections 2.3.1 and 2.4) and `CRLF` line endings (section 2.3.8) are used.
-    #[inline]
-    pub fn smtp_line(str: &str) -> bool {
-        str.ends_with("\r\n") && str.is_ascii()
-    }
-
-    /// Checks if the server's opening message roughly matches [RFC 5321,
-    /// section 4.2](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.2).
-    ///
-    /// Considers a 554 response to be an error.
-    pub fn server_greeting(str: &str) -> bool {
-        str.starts_with("220") && smtp_line(str)
-    }
-
-    pub fn helo(str: &str) -> bool {
-        smtp_line(str) && todo!()
-    }
-
-    /// Checks if the server's response to the `QUIT` command matches [RFC 5321, section
-    /// 4.1.1.10](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.1.1.10).
-    pub fn quit(str: &str) -> bool {
-        smtp_line(str) && str.starts_with("221")
-    }
 }
