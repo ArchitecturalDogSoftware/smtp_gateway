@@ -19,7 +19,7 @@
 
 use std::io::Result;
 
-use ascii::{AsAsciiStr, AsciiStr, AsciiString, IntoAsciiString};
+use ascii::{AsAsciiStr, AsciiStr};
 use tokio::{io::AsyncWriteExt, net::tcp::WriteHalf};
 
 use super::{
@@ -80,6 +80,7 @@ pub async fn not_implemented(write_stream: &mut WriteHalf<'_>, _: Command) -> Re
 pub async fn hello(write_stream: &mut WriteHalf<'_>, command: Command) -> Result<ShouldClose> {
     /// Parse out the domain name or address literal from the start of the text of a command.
     ///
+    /// [RFC 5321 section 4.1.2](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.1.2).
     /// [RFC 5321 section 4.1.3](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.1.3).
     ///
     /// # Errors
