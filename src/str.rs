@@ -18,7 +18,7 @@
 
 use std::{borrow::Cow, fmt::Display};
 
-use ascii::{AsAsciiStrError, AsciiChar, AsciiStr, AsciiString, IntoAsciiString};
+use ascii::{AsAsciiStr, AsAsciiStrError, AsciiChar, AsciiStr, AsciiString};
 
 pub const CR: char = '\r';
 pub const LF: char = '\n';
@@ -60,8 +60,8 @@ impl SmtpString {
     /// # }
     /// ```
     pub fn new(str: &str) -> Result<Self, AsAsciiStrError> {
-        let str = str.into_ascii_string().map_err(|e| e.ascii_error())?;
-        let str = self::replace_endings_with_crlf(&str).into_owned();
+        let str = str.as_ascii_str()?;
+        let str = self::replace_endings_with_crlf(str).into_owned();
 
         Ok(Self { str })
     }
