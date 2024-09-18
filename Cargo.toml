@@ -11,9 +11,9 @@ edition.workspace = true
 [workspace]
 package.publish = false
 package.authors = ["RemasteredArch", "Jaxydog"]
-package.repository = "https://github.com/RemasteredArch/smtp_gateway/"
+package.repository = "https://github.com/ArchitecturalDogSoftware/smtp_gateway"
 package.readme = true
-package.license = "AGPL-3.0-or-later"                                  # Maybe "Apache-2.0 OR MIT" for the lib?
+package.license = "AGPL-3.0-or-later"                                           # Maybe "Apache-2.0 OR MIT" for the lib?
 package.edition = "2021"
 
 members = ["smtp_gateway_bot"]
