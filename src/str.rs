@@ -97,12 +97,12 @@ impl Display for SmtpString {
     }
 }
 
-/// Replaces all line endings in the given string with CRLF-style endings (`\r\n`).
+/// Replaces all line endings in the given string with `CRLF`-style endings (`"\r\n"`).
 ///
-/// This will preserve pre-existing `\r\n` characters while replacing the following cases:
-/// - `\r` -> `\r\n`
-/// - `\n` -> `\r\n`
-/// - `\n\r` -> `\r\n\r\n`
+/// This will preserve pre-existing `"\r\n"` characters while replacing the following cases:
+/// - `'\r'` -> `"\r\n"`
+/// - `'\n'` -> `"\r\n"`
+/// - `"\n\r"` -> `"\r\n\r\n"`
 ///
 /// If the original string does not need to be modified, this function will not allocate.
 fn replace_endings_with_crlf(string: &AsciiStr) -> Cow<AsciiStr> {
