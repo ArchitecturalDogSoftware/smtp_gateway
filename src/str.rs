@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Copyright © 2024 RemasteredArch
+// Copyright © 2024 Jaxydog
 //
 // This file is part of smtp_gateway.
 //
@@ -15,9 +16,9 @@
 // You should have received a copy of the GNU Affero General Public License along with
 // smtp_gateway. If not, see <https://www.gnu.org/licenses/>.
 
-use std::fmt::Display;
+use std::{borrow::Cow, fmt::Display};
 
-use ascii::{AsAsciiStrError, AsciiString, IntoAsciiString};
+use ascii::{AsAsciiStrError, AsciiChar, AsciiStr, AsciiString, IntoAsciiString};
 
 pub const CR: char = '\r';
 pub const LF: char = '\n';
@@ -59,11 +60,10 @@ impl SmtpString {
     /// # }
     /// ```
     pub fn new(str: &str) -> Result<Self, AsAsciiStrError> {
-        let str = replace_all_endings_with_crlf(str);
+        let str = str.into_ascii_string().map_err(|e| e.ascii_error())?;
+        let str = self::replace_endings_with_crlf(&str).into_owned();
 
-        Ok(Self {
-            str: str.into_ascii_string().map_err(|e| e.ascii_error())?,
-        })
+        Ok(Self { str })
     }
 
     /// Create a [`Self`] from an [`AsciiString`].
@@ -97,51 +97,48 @@ impl Display for SmtpString {
     }
 }
 
-/// Replaces:
-/// - Any [`CR`] not followed by [`LF`] with [`CRLF`].
-/// - Any [`LF`] not preceded by [`CR`] with [`CRLF`].
+/// Replaces all line endings in the given string with CRLF-style endings (`\r\n`).
 ///
-/// This means that any `LFCR` (`"\n\r"`) (not including the `"\n\r"` in the middle of
-/// `"\r\n\r\n"`) is replaced with `"\r\n\r\n"`.
-fn replace_all_endings_with_crlf(str: &str) -> String {
-    let mut iter = str.chars();
+/// This will preserve pre-existing `\r\n` characters while replacing the following cases:
+/// - `\r` -> `\r\n`
+/// - `\n` -> `\r\n`
+/// - `\n\r` -> `\r\n\r\n`
+///
+/// If the original string does not need to be modified, this function will not allocate.
+fn replace_endings_with_crlf(string: &AsciiStr) -> Cow<AsciiStr> {
+    let mut output = Cow::Borrowed(string);
+    let mut previous = None;
 
-    let mut previous = ' '; // Dummy value
-    let Some(mut current) = iter.next() else {
-        return String::new();
-    };
-    let mut next = iter.next();
+    #[expect(clippy::iter_skip_zero, reason = "Needed to preserve type integrity")]
+    let mut iterator = output.chars().enumerate().skip(0).peekable();
 
-    let mut output = String::new();
-
-    loop {
-        match current {
-            // Push `CR` onto the output and push `LF` if not already up next
-            CR => {
-                output.push(CR);
-                match next {
-                    Some(LF) => (),       // Do nothing, `CRLF` is correct
-                    _ => output.push(LF), // `CR` -> `CRLF`
-                }
+    while let Some((index, character)) = iterator.next() {
+        match character {
+            // If the previous character is not a carriage return.
+            AsciiChar::LineFeed if !matches!(previous, Some(AsciiChar::CarriageReturn)) => {
+                // Insert one before this.
+                output.to_mut().insert(index, AsciiChar::CarriageReturn);
             }
-            // Push `LF` onto the output, pushing `CR` first if not already present
-            LF => {
-                match previous {
-                    CR => (),             // Do nothing, `CRLF` is correct
-                    _ => output.push(CR), // `LF` -> `CRLF`
-                }
-                output.push(LF);
+            // If the next character is not a line feed.
+            AsciiChar::CarriageReturn
+                if !matches!(iterator.peek(), Some((_, AsciiChar::LineFeed))) =>
+            {
+                // Insert one after this.
+                output.to_mut().insert(index + 1, AsciiChar::LineFeed);
             }
-            // Push onto the output
-            c => output.push(c),
+            // Ignore any other characters.
+            _ => {
+                previous = Some(character);
+
+                continue;
+            }
         }
 
-        previous = current;
-        current = match next {
-            Some(c) => c,
-            None => break,
-        };
-        next = iter.next();
+        // Skip over all previous characters *and* the added one.
+        // This is needed to update the iterator after changing the string.
+        iterator = output.chars().enumerate().skip(index + 2).peekable();
+        // The previous character after modifications should always be a line feed.
+        previous = Some(AsciiChar::LineFeed);
     }
 
     output
