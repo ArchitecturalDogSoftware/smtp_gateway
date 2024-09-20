@@ -20,8 +20,6 @@ use std::{borrow::Cow, fmt::Display};
 
 use ascii::{AsAsciiStr, AsAsciiStrError, AsciiChar, AsciiStr, AsciiString};
 
-pub const CR: char = '\r';
-pub const LF: char = '\n';
 pub const CRLF: &str = "\r\n";
 
 /// A string guaranteed for usage with SMTP.
@@ -39,8 +37,8 @@ impl SmtpString {
     /// line endings.
     ///
     /// Replaces:
-    /// - Any [`CR`] not followed by [`LF`] with [`CRLF`].
-    /// - Any [`LF`] not preceded by [`CR`] with [`CRLF`].
+    /// - Any [`AsciiChar::CarriageReturn`] not followed by [`AsciiChar::LineFeed`] with [`CRLF`].
+    /// - Any [`AsciiChar::LineFeed`] not preceded by [`AsciiChar::CarriageReturn`] with [`CRLF`].
     ///
     /// # Errors
     ///
