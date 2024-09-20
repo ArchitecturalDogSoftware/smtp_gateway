@@ -126,7 +126,7 @@ macro_rules! read_line {
     };
 }
 
-/// Write a string literal into `writer` as an [`crate::str::SmtpString`]. Appends a line ending.
+/// Write a string literal into `writer` as an [`str::SmtpString`]. Appends a line ending.
 ///
 /// # Errors
 ///
