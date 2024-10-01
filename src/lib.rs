@@ -59,8 +59,6 @@ pub use message::Message;
 
 pub type Session = JoinHandle<Result<()>>;
 
-// This could return handles to tasks in an `async` iterator, where the consumer `await`s the next
-// handle.
 /// Listen on a port for incoming TCP connections and handle them as SMTP sessions.
 ///
 /// # Errors
