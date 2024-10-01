@@ -39,7 +39,7 @@ type Result = std::result::Result<(), Box<dyn Error>>;
 // - [ ] `RSET`
 // - [ ] `NOOP`
 // - [ ] `VRFY`
-// - [ ] `QUIT`
+// - [x] `QUIT`
 //
 // <https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.1>
 #[tokio::test]
