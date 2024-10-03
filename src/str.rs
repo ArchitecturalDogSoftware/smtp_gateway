@@ -21,6 +21,7 @@ use std::{borrow::Cow, fmt::Display};
 use ascii::{AsAsciiStr, AsAsciiStrError, AsciiChar, AsciiStr, AsciiString};
 
 pub const CRLF: &str = "\r\n";
+pub const MAX_LEN: usize = 150;
 
 /// A string guaranteed for usage with SMTP.
 ///
@@ -140,4 +141,95 @@ fn replace_endings_with_crlf(string: &AsciiStr) -> Cow<AsciiStr> {
     }
 
     output
+}
+
+/// A fixed-length, stack-allocated string that is expected to be used like [`SmtpString`].
+pub(crate) struct RawSmtpString {
+    pub buffer: [AsciiChar; MAX_LEN],
+    pub len: usize,
+}
+
+impl RawSmtpString {
+    /// Constructs a new [`Self`] with the buffer filled with [`AsciiChar::_0`] and len
+    /// `0`.
+    pub const fn new_zeroed() -> Self {
+        Self {
+            buffer: [AsciiChar::_0; MAX_LEN],
+            len: 0,
+        }
+    }
+
+    /// Replaces all line endings in the given string with `CRLF`-style endings (`"\r\n"`) without
+    /// allocating to the heap.
+    ///
+    /// Intended to be used alongside a function or macro to convert [`Self`] into a more
+    /// appropriate type.
+    ///
+    /// This will preserve pre-existing `"\r\n"` characters while replacing the following cases:
+    /// - `'\r'` -> `"\r\n"`
+    /// - `'\n'` -> `"\r\n"`
+    /// - `"\n\r"` -> `"\r\n\r\n"`
+    ///
+    /// # Panics
+    ///
+    /// Panics if the input or output strings are longer than [`MAX_LEN`] bytes.
+    pub const fn new(string: &AsciiStr) -> Self {
+        enum Ending {
+            CR,
+            LF,
+        }
+
+        assert!(string.len() > MAX_LEN);
+
+        let slice = string.as_slice();
+        let mut output = Self::new_zeroed();
+
+        let mut previous: Option<AsciiChar> = None;
+        // Tracks the position in [`string`].
+        let mut index: usize = 0;
+        // Tracks the corresponding position in [`output`].
+        let mut output_index: usize = 0;
+
+        while index < string.len() {
+            let char = slice[index];
+
+            match char {
+                // If the previous character is not a carriage return.
+                AsciiChar::LineFeed if !matches!(previous, Some(AsciiChar::CarriageReturn)) => {
+                    // Insert one before this.
+                    output.buffer[index] = AsciiChar::CarriageReturn;
+                    output_index += 1;
+                    output.len += 1;
+                    output.buffer[index] = char;
+                }
+                // If the next character is not a line feed.
+                AsciiChar::CarriageReturn
+                    if !(
+                        // Out of bounds check to avoid panicking on strings that are of valid length,
+                        // but just end with carriage return.
+                        slice.len() > index &&
+                    // If next character is a line feed.
+                    matches!(slice[index + 1], AsciiChar::LineFeed)
+                    ) =>
+                {
+                    // Insert one after this.
+                    output.buffer[output_index] = char;
+                    output_index += 1;
+                    output.len += 1;
+                    output.buffer[output_index] = AsciiChar::CarriageReturn;
+                }
+                _ => {
+                    output.buffer[output_index] = char;
+                }
+            }
+
+            output.len += 1;
+
+            previous = Some(char);
+            index += 1;
+            output_index += 1;
+        }
+
+        output
+    }
 }
