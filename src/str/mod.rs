@@ -144,12 +144,13 @@ fn replace_endings_with_crlf(string: &AsciiStr) -> Cow<AsciiStr> {
 }
 
 /// A fixed-length, stack-allocated string that is expected to be used like [`SmtpString`].
-pub(crate) struct RawSmtpString {
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Clone)]
+pub(crate) struct RawSmtpStr {
     pub buffer: [AsciiChar; MAX_LEN],
     pub len: usize,
 }
 
-impl RawSmtpString {
+impl RawSmtpStr {
     /// Constructs a new [`Self`] with the buffer filled with [`AsciiChar::_0`] and len
     /// `0`.
     pub const fn new_zeroed() -> Self {
@@ -231,5 +232,26 @@ impl RawSmtpString {
         }
 
         output
+    }
+
+    /// Gets the stored string ([`Self::buffer`] from 0..[`Self::len`]) as a string slice.
+    pub fn as_str(&self) -> &str {
+        self.as_ascii_str().as_str()
+    }
+
+    /// Gets the stored string ([`Self::buffer`] from 0..[`Self::len`]) as an [`AsciiStr`].
+    pub fn as_ascii_str(&self) -> &AsciiStr {
+        // Safety: a slice of [`AsciiChar`] is exactly how [`AsciiStr`] is represented.
+        unsafe { self.as_slice().as_ascii_str_unchecked() }
+    }
+
+    /// Gets the stored string ([`Self::buffer`] from 0..[`Self::len`]) as a byte slice.
+    pub fn as_bytes(&self) -> &[u8] {
+        self.as_ascii_str().as_bytes()
+    }
+
+    /// Get a slice of [`Self::buffer`] from 0..[`Self::len`] (the stored string).
+    pub fn as_slice(&self) -> &[AsciiChar] {
+        &self.buffer[..self.len]
     }
 }
