@@ -153,6 +153,7 @@ pub(crate) struct RawSmtpStr {
     pub len: usize,
 }
 
+#[expect(dead_code, reason = "not finished yet")]
 impl RawSmtpStr {
     /// Constructs a new [`Self`] with the buffer filled with [`AsciiChar::_0`] and len
     /// `0`.
@@ -178,12 +179,7 @@ impl RawSmtpStr {
     ///
     /// Panics if the input or output strings are longer than [`MAX_LEN`] bytes.
     pub const fn new(string: &AsciiStr) -> Self {
-        enum Ending {
-            CR,
-            LF,
-        }
-
-        assert!(string.len() < MAX_LEN);
+        assert!(string.len() <= MAX_LEN);
 
         let slice = string.as_slice();
         let mut output = Self::new_zeroed();

@@ -27,13 +27,43 @@ fn test_raw_smtp_string() -> Result {
         };
     }
 
-    eq!("", "");
+    macro_rules! expect_panic {
+        ($str:expr, $reason:expr) => {
+            match $str.as_ascii_str() {
+                Ok(s) => {
+                    if std::panic::catch_unwind(|| RawSmtpStr::new(s)).is_ok() {
+                        return Err(
+                            concat!("Didn't encounter a panic even though ", $reason).into()
+                        );
+                    }
+
+                    Ok(())
+                }
+                Err(e) => Err(e),
+            }
+        };
+    }
+
     eq!("\r", "\r\n");
     eq!("\n", "\r\n");
     eq!("\n\r", "\r\n\r\n");
-    eq!("Lorem\r", "Lorem\r\n");
-    eq!("Lorem\n", "Lorem\r\n");
-    eq!(&"\n".repeat(75), &"\r\n".repeat(75));
+    eq!(&"\n".repeat(MAX_LEN / 2), &"\r\n".repeat(MAX_LEN / 2));
+
+    eq!("", "");
+    eq!("lorem", "lorem");
+    eq!("lorem\r", "lorem\r\n");
+    eq!("lorem\n", "lorem\r\n");
+
+    eq!(" ".repeat(MAX_LEN), " ".repeat(MAX_LEN));
+
+    expect_panic!(
+        "\n".repeat(MAX_LEN / 2 + 1),
+        "resulting string should be two bytes longer than the buffer allows"
+    )?;
+    expect_panic!(
+        format!("{}\r", "0".repeat(MAX_LEN - 1)),
+        "resulting string should be one byte longer than the buffer allows"
+    )?;
 
     Ok(())
 }
