@@ -30,6 +30,10 @@ pub const MAX_LEN: usize = 150;
 ///
 /// [RFC 5321](https://www.rfc-editor.org/rfc/rfc5321.html) requires that only US-ASCII character
 /// encoding (sections 2.3.1 and 2.4) and `CRLF` line endings (section 2.3.8) are used.
+///
+/// Methods do *not*, however, perform either of the following requirements:
+/// - Append a trailing line ending sequence.
+/// - Collapse consecutive line ending sequences.
 #[repr(transparent)]
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Clone, Default)]
 pub struct SmtpString {
@@ -43,6 +47,10 @@ impl SmtpString {
     /// Replaces:
     /// - Any [`AsciiChar::CarriageReturn`] not followed by [`AsciiChar::LineFeed`] with [`CRLF`].
     /// - Any [`AsciiChar::LineFeed`] not preceded by [`AsciiChar::CarriageReturn`] with [`CRLF`].
+    ///
+    /// Does *not*:
+    /// - Append a trailing line ending sequence.
+    /// - Collapse consecutive line ending sequences.
     ///
     /// # Errors
     ///
