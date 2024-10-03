@@ -20,6 +20,9 @@ use std::{borrow::Cow, fmt::Display};
 
 use ascii::{AsAsciiStr, AsAsciiStrError, AsciiChar, AsciiStr, AsciiString};
 
+#[cfg(test)]
+mod test;
+
 pub const CRLF: &str = "\r\n";
 pub const MAX_LEN: usize = 150;
 
@@ -180,7 +183,7 @@ impl RawSmtpStr {
             LF,
         }
 
-        assert!(string.len() > MAX_LEN);
+        assert!(string.len() < MAX_LEN);
 
         let slice = string.as_slice();
         let mut output = Self::new_zeroed();
@@ -198,26 +201,26 @@ impl RawSmtpStr {
                 // If the previous character is not a carriage return.
                 AsciiChar::LineFeed if !matches!(previous, Some(AsciiChar::CarriageReturn)) => {
                     // Insert one before this.
-                    output.buffer[index] = AsciiChar::CarriageReturn;
+                    output.buffer[output_index] = AsciiChar::CarriageReturn;
                     output_index += 1;
                     output.len += 1;
-                    output.buffer[index] = char;
+                    output.buffer[output_index] = char;
                 }
                 // If the next character is not a line feed.
                 AsciiChar::CarriageReturn
                     if !(
                         // Out of bounds check to avoid panicking on strings that are of valid length,
                         // but just end with carriage return.
-                        slice.len() > index &&
-                    // If next character is a line feed.
-                    matches!(slice[index + 1], AsciiChar::LineFeed)
+                        index + 1 < slice.len() &&
+                        // If next character is a line feed.
+                        matches!(slice[index + 1], AsciiChar::LineFeed)
                     ) =>
                 {
                     // Insert one after this.
                     output.buffer[output_index] = char;
                     output_index += 1;
                     output.len += 1;
-                    output.buffer[output_index] = AsciiChar::CarriageReturn;
+                    output.buffer[output_index] = AsciiChar::LineFeed;
                 }
                 _ => {
                     output.buffer[output_index] = char;
