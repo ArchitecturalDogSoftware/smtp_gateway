@@ -28,38 +28,38 @@
 /// The maximum length of the local-part (such as the username of an email address) in bytes.
 ///
 /// [RFC 5321 § 4.5.3.1.1](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.1.1).
-const LOCAL_PART: usize = 64;
+pub const LOCAL_PART: usize = 64;
 
 /// The maximum length of a domain name or number in bytes.
 ///
 /// [RFC 5321 § 4.5.3.1.2](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.1.2).
-const DOMAIN: usize = 255;
+pub const DOMAIN: usize = 255;
 
 /// The maximum length of a reverse-path or forward-path (including punctuation and separators)
 /// in bytes.
 ///
 /// [RFC 5321 § 4.5.3.1.3](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.1.3).
-const PATH: usize = 256;
+pub const PATH: usize = 256;
 
 /// The maximum length of a command line (including the verb and line ending sequence) in
 /// bytes.
 ///
 /// [RFC 5321 § 4.5.3.1.4](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.1.4).
-const COMMAND_LINE: usize = 512;
+pub const COMMAND_LINE: usize = 512;
 
 /// The maximum length of a reply line (including the code and line ending sequence) in bytes.
 ///
 /// [RFC 5321 § 4.5.3.1.5](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.1.5).
-const REPLY_LINE: usize = 512;
+pub const REPLY_LINE: usize = 512;
 
 /// The maximum length of a text line (including the line ending sequence) in bytes.
 ///
 /// [RFC 5321 § 4.5.3.1.6](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.1.6).
-const TEXT_LINE: usize = 1_000;
+pub const TEXT_LINE: usize = 1_000;
 
 /// The maximum length of a message (including both the headers and body) in bytes.
 ///
 /// Given the evolution of email, this value is especially recommended to be raised.
 ///
 /// [RFC 5321 § 4.5.3.1.7](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.1.7).
-const MESSAGE: usize = 64_000;
+pub const MESSAGE: usize = 64_000;
