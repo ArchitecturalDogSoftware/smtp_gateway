@@ -128,15 +128,16 @@ macro_rules! read_line {
 ///
 /// # Errors
 ///
-/// - [`std::io::ErrorKind::InvalidInput`] if passed invalid ASCII.
 /// - Any errors that could come out of the supplied writer's `write_all` function.
+///
+/// # Panics
+///
+/// Panics (at compile time) if passed invalid ASCII.
 #[macro_export]
 macro_rules! write_line {
     ($writer:expr, $str:expr) => {{
-        match $crate::str::SmtpString::new(concat!($str, "\r\n")) {
-            Ok(s) => $writer.write_all(s.as_bytes()).await,
-            Err(e) => Err(::std::io::Error::new(::std::io::ErrorKind::InvalidInput, e)),
-        }
+        const STR: $crate::str::RawSmtpStr = $crate::str::RawSmtpStr::new(concat!($str, "\r\n"));
+        $writer.write_all(STR.as_bytes()).await
     }};
 }
 
