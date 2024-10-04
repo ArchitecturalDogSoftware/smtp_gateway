@@ -23,7 +23,7 @@ type Result = std::result::Result<(), Box<dyn std::error::Error>>;
 fn test_raw_smtp_string() -> Result {
     macro_rules! eq {
         ($str:expr, $expected:expr) => {
-            assert_eq!(RawSmtpStr::new($str.as_ascii_str()?).as_str(), $expected)
+            assert_eq!(RawSmtpStr::new($str).as_str(), $expected)
         };
     }
 
@@ -31,7 +31,7 @@ fn test_raw_smtp_string() -> Result {
         ($str:expr, $reason:expr) => {
             match $str.as_ascii_str() {
                 Ok(s) => {
-                    if std::panic::catch_unwind(|| RawSmtpStr::new(s)).is_ok() {
+                    if std::panic::catch_unwind(|| RawSmtpStr::new_from_ascii(s)).is_ok() {
                         return Err(
                             concat!("Didn't encounter a panic even though ", $reason).into()
                         );
@@ -54,7 +54,7 @@ fn test_raw_smtp_string() -> Result {
     eq!("lorem\r", "lorem\r\n");
     eq!("lorem\n", "lorem\r\n");
 
-    eq!(" ".repeat(MAX_LEN), " ".repeat(MAX_LEN));
+    eq!(&" ".repeat(MAX_LEN), " ".repeat(MAX_LEN));
 
     expect_panic!(
         "\n".repeat(MAX_LEN / 2 + 1),

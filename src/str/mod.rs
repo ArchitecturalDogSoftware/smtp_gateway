@@ -185,8 +185,38 @@ impl RawSmtpStr {
     ///
     /// # Panics
     ///
+    /// Panics if:
+    /// - Provided invalid ASCII.
+    /// - The input or output strings are longer than [`MAX_LEN`] bytes.
+    pub const fn new(str: &str) -> Self {
+        if str.is_ascii() {
+            let str = {
+                let bytes = std::ptr::from_ref::<[u8]>(str.as_bytes());
+
+                // Safety: we just verified that `str.is_ascii`.
+                unsafe { &*(bytes as *const AsciiStr) }
+            };
+            Self::new_from_ascii(str)
+        } else {
+            panic!("provided invalid ASCII")
+        }
+    }
+
+    /// Replaces all line endings in the given string with `CRLF`-style endings (`"\r\n"`) without
+    /// allocating to the heap.
+    ///
+    /// Intended to be used alongside a function or macro to convert [`Self`] into a more
+    /// appropriate type.
+    ///
+    /// This will preserve pre-existing `"\r\n"` characters while replacing the following cases:
+    /// - `'\r'` -> `"\r\n"`
+    /// - `'\n'` -> `"\r\n"`
+    /// - `"\n\r"` -> `"\r\n\r\n"`
+    ///
+    /// # Panics
+    ///
     /// Panics if the input or output strings are longer than [`MAX_LEN`] bytes.
-    pub const fn new(string: &AsciiStr) -> Self {
+    pub const fn new_from_ascii(string: &AsciiStr) -> Self {
         assert!(string.len() <= MAX_LEN);
 
         let slice = string.as_slice();
@@ -260,5 +290,26 @@ impl RawSmtpStr {
     /// Get a slice of [`Self::buffer`] from 0..[`Self::len`] (the stored string).
     pub fn as_slice(&self) -> &[AsciiChar] {
         &self.buffer[..self.len]
+    }
+
+    /// Get the length of the stored string.
+    pub const fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Get the length of the internal buffer.
+    pub const fn capacity(&self) -> usize {
+        self.buffer.len()
+    }
+
+    /// Unwrap [`Self`] into a tuple holding the inner buffer and the length of the stored string.
+    pub(crate) const fn into_inner(self) -> ([AsciiChar; MAX_LEN], usize) {
+        (self.buffer, self.len)
+    }
+
+    /// Consume [`Self`] to create an [`SmtpString`].
+    pub fn into_smtp_string(self) -> SmtpString {
+        // Safety: [`Self::new_from_ascii`] already ensures CRLF.
+        unsafe { SmtpString::from_ascii_str_unchecked(self.as_ascii_str().to_ascii_string()) }
     }
 }
