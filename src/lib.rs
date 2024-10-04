@@ -136,7 +136,8 @@ macro_rules! read_line {
 #[macro_export]
 macro_rules! write_line {
     ($writer:expr, $str:expr) => {{
-        const STR: $crate::str::RawSmtpStr = $crate::str::RawSmtpStr::new(concat!($str, "\r\n"));
+        const STR: $crate::str::RawSmtpStr<{ $crate::str::max_lengths::REPLY_LINE }> =
+            $crate::str::RawSmtpStr::new(concat!($str, "\r\n"));
         $writer.write_all(STR.as_bytes()).await
     }};
 }

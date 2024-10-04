@@ -154,18 +154,18 @@ fn replace_endings_with_crlf(string: &AsciiStr) -> Cow<AsciiStr> {
 
 /// A fixed-length, stack-allocated string that is expected to be used like [`SmtpString`].
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Clone)]
-pub(crate) struct RawSmtpStr {
-    pub buffer: [AsciiChar; MAX_LEN],
+pub(crate) struct RawSmtpStr<const L: usize> {
+    pub buffer: [AsciiChar; L],
     pub len: usize,
 }
 
 #[expect(dead_code, reason = "not finished yet")]
-impl RawSmtpStr {
+impl<const L: usize> RawSmtpStr<L> {
     /// Constructs a new [`Self`] with the buffer filled with [`AsciiChar::_0`] and len
     /// `0`.
     pub const fn new_zeroed() -> Self {
         Self {
-            buffer: [AsciiChar::_0; MAX_LEN],
+            buffer: [AsciiChar::_0; L],
             len: 0,
         }
     }
@@ -185,7 +185,7 @@ impl RawSmtpStr {
     ///
     /// Panics if:
     /// - Provided invalid ASCII.
-    /// - The input or output strings are longer than [`MAX_LEN`] bytes.
+    /// - The input or output strings are longer than [`L`] bytes.
     pub const fn new(str: &str) -> Self {
         if str.is_ascii() {
             let str = {
@@ -213,9 +213,9 @@ impl RawSmtpStr {
     ///
     /// # Panics
     ///
-    /// Panics if the input or output strings are longer than [`MAX_LEN`] bytes.
+    /// Panics if the input or output strings are longer than [`L`] bytes.
     pub const fn new_from_ascii(string: &AsciiStr) -> Self {
-        assert!(string.len() <= MAX_LEN);
+        assert!(string.len() <= L);
 
         let slice = string.as_slice();
         let mut output = Self::new_zeroed();
@@ -301,7 +301,7 @@ impl RawSmtpStr {
     }
 
     /// Unwrap [`Self`] into a tuple holding the inner buffer and the length of the stored string.
-    pub(crate) const fn into_inner(self) -> ([AsciiChar; MAX_LEN], usize) {
+    pub(crate) const fn into_inner(self) -> ([AsciiChar; L], usize) {
         (self.buffer, self.len)
     }
 

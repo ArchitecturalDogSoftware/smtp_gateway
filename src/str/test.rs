@@ -21,9 +21,11 @@ type Result = std::result::Result<(), Box<dyn std::error::Error>>;
 
 #[test]
 fn test_raw_smtp_string() -> Result {
+    const L: usize = max_lengths::REPLY_LINE;
+
     macro_rules! eq {
         ($str:expr, $expected:expr) => {
-            assert_eq!(RawSmtpStr::new($str).as_str(), $expected)
+            assert_eq!(RawSmtpStr::<{ L }>::new($str).as_str(), $expected)
         };
     }
 
@@ -31,7 +33,7 @@ fn test_raw_smtp_string() -> Result {
         ($str:expr, $reason:expr) => {
             match $str.as_ascii_str() {
                 Ok(s) => {
-                    if std::panic::catch_unwind(|| RawSmtpStr::new_from_ascii(s)).is_ok() {
+                    if std::panic::catch_unwind(|| RawSmtpStr::<{ L }>::new_from_ascii(s)).is_ok() {
                         return Err(
                             concat!("Didn't encounter a panic even though ", $reason).into()
                         );
@@ -47,21 +49,21 @@ fn test_raw_smtp_string() -> Result {
     eq!("\r", "\r\n");
     eq!("\n", "\r\n");
     eq!("\n\r", "\r\n\r\n");
-    eq!(&"\n".repeat(MAX_LEN / 2), &"\r\n".repeat(MAX_LEN / 2));
+    eq!(&"\n".repeat(L / 2), &"\r\n".repeat(L / 2));
 
     eq!("", "");
     eq!("lorem", "lorem");
     eq!("lorem\r", "lorem\r\n");
     eq!("lorem\n", "lorem\r\n");
 
-    eq!(&" ".repeat(MAX_LEN), " ".repeat(MAX_LEN));
+    eq!(&" ".repeat(L), " ".repeat(L));
 
     expect_panic!(
-        "\n".repeat(MAX_LEN / 2 + 1),
+        "\n".repeat(L / 2 + 1),
         "resulting string should be two bytes longer than the buffer allows"
     )?;
     expect_panic!(
-        format!("{}\r", "0".repeat(MAX_LEN - 1)),
+        format!("{}\r", "0".repeat(L - 1)),
         "resulting string should be one byte longer than the buffer allows"
     )?;
 
