@@ -20,6 +20,7 @@ use std::{borrow::Cow, fmt::Display};
 
 use ascii::{AsAsciiStr, AsAsciiStrError, AsciiChar, AsciiStr, AsciiString};
 
+pub(crate) mod max_lengths;
 #[cfg(test)]
 mod test;
 
