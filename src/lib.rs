@@ -148,13 +148,71 @@ macro_rules! write_line {
 ///
 /// # Errors
 ///
-/// - [`std::io::ErrorKind::InvalidInput`] if passed invalid ASCII.
+/// - [`std::io::ErrorKind::InvalidInput`] if the string contains invalid ASCII after
+///   formatting.
 /// - Any errors that could come out of the supplied writer's `write_all` function.
+///
+/// # Panics
+///
+/// Panics (at compile time) if the format string contains invalid ASCII. Use `"{}", variable`
+/// syntax if `variable` needs to be named with non-ASCII characters, as neither succeeded inputs
+/// or the resulting output are checked at compile time.
+///
+/// # Examples
+///
+/// ```
+/// use tokio::io::AsyncWriteExt;
+/// use smtp_gateway::write_fmt_line;
+///
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let mut writer = tokio_test::io::Builder::new().write(b"formatted string\r\n").build();
+///
+/// write_fmt_line!(writer, "formatted {}", "string")?;
+/// #     Ok(())
+/// # }
+/// ```
+///
+/// Non-ASCII in the formatting string will be caught at compile time:
+///
+/// ```compile_fail
+/// # use tokio::io::AsyncWriteExt;
+/// # use smtp_gateway::write_fmt_line;
+/// #
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// #     let mut writer = tokio_test::io::Builder::new().write("fmt 🦀\r\n".as_bytes()).build();
+/// // Panics at compile time due to invalid ASCII.
+/// write_fmt_line!(writer, "fmt 🦀")?;
+/// #     Ok(())
+/// # }
+/// ```
+///
+/// Non-ASCII in the resulting string will be caught at runtime:
+///
+/// ```should_panic
+/// # use tokio::io::AsyncWriteExt;
+/// # use smtp_gateway::write_fmt_line;
+/// #
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// #     let mut writer = tokio_test::io::Builder::new().write("fmt 🦀\r\n".as_bytes()).build();
+/// // Errors at runtime due to invalid ASCII.
+/// write_fmt_line!(writer, "fmt {}", '🦀')?;
+/// #     Ok(())
+/// # }
+/// ```
 #[macro_export]
 macro_rules! write_fmt_line {
-    ($writer:expr, $( $fmt:expr ),+) => {{
-        match $crate::str::SmtpString::new(&format!("{}\r\n", format!( $($fmt),+ ))) {
+    ($writer:expr, $fmt_str:expr $(, $fmt_item:expr )*) => {{
+        // Causes a compile time panic if `$fmt_str` contains non-ASCII characters.
+        const _: () = {
+            assert!($fmt_str.is_ascii(), "invalid ASCII in format string");
+        };
+
+        match $crate::str::SmtpString::new(&format!("{}\r\n", format!( $fmt_str, $($fmt_item),* ))) {
             Ok(s) => $writer.write_all(s.as_bytes()).await,
+            // Runtime error that occurs if the formatted output contains non-ASCII characters.
             Err(e) => Err(::std::io::Error::new(::std::io::ErrorKind::InvalidInput, e)),
         }
     }};
