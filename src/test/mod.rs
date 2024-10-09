@@ -79,9 +79,11 @@ async fn test_listen() -> Result {
     ));
 
     write_line!(write_stream, "HELO")?;
+    todo!("add timeout checks");
     assert!(is_valid_response::helo(&read_line!(reader).await?));
 
     write_line!(write_stream, "QUIT")?;
+    todo!("add timeout checks");
     assert!(is_valid_response::quit(&read_line!(reader).await?));
 
     Ok(())

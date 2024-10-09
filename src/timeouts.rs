@@ -38,8 +38,15 @@ macro_rules! minute_durations {
         ),+ ,] => {
             $(
                 $( #[$attr] )*
+                #[cfg(not(test))]
                 pub const $label: ::std::time::Duration =
                     ::std::time::Duration::from_secs($minutes * 60);
+
+                // For stricter performance checks during testing.
+                $( #[$attr] )*
+                #[cfg(test)]
+                pub const $label: ::std::time::Duration =
+                    ::std::time::Duration::from_secs(3);
             )+
         };
     }
