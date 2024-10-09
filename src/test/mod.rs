@@ -23,7 +23,7 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
-use crate::{read_line, write_line};
+use crate::{read_line, timeouts};
 
 mod is_valid_response;
 
@@ -44,6 +44,24 @@ type Result = std::result::Result<(), Box<dyn Error>>;
 // <https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.1>
 #[tokio::test]
 async fn test_listen() -> Result {
+    /// Test the responses to a series of SMTP commands.
+    ///
+    /// Implicitly `await`s, returns on errors, and panics on invalid responses.
+    macro_rules! test_response {
+        (
+            $write_stream:expr, $reader:expr, [$(
+                ( $message:expr, $timeout:expr, $test_fn:expr $(,)? )
+           ),+ $(,)? ] $(,)?
+        ) => {
+            $(
+                $crate::write_line!($write_stream, $message)?;
+                assert!($test_fn(
+                    &::tokio::time::timeout($timeout, $crate::read_line!($reader)).await??
+                ))
+            );+
+        };
+    }
+
     const ADDR: &str = "127.0.0.1:8080";
 
     let stream = crate::listen(TcpListener::bind(ADDR).await?);
@@ -78,13 +96,22 @@ async fn test_listen() -> Result {
         &read_line!(reader).await?
     ));
 
-    write_line!(write_stream, "HELO")?;
-    todo!("add timeout checks");
-    assert!(is_valid_response::helo(&read_line!(reader).await?));
-
-    write_line!(write_stream, "QUIT")?;
-    todo!("add timeout checks");
-    assert!(is_valid_response::quit(&read_line!(reader).await?));
+    test_response!(
+        write_stream,
+        reader,
+        [
+            (
+                "HELO",
+                timeouts::INITIAL_220_MESSAGE,
+                is_valid_response::helo,
+            ),
+            (
+                "QUIT",
+                todo!("add a generic timeout"),
+                is_valid_response::quit,
+            ),
+        ],
+    );
 
     Ok(())
 }
