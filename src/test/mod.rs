@@ -105,11 +105,7 @@ async fn test_listen() -> Result {
                 timeouts::INITIAL_220_MESSAGE,
                 is_valid_response::helo,
             ),
-            (
-                "QUIT",
-                todo!("add a generic timeout"),
-                is_valid_response::quit,
-            ),
+            ("QUIT", timeouts::EXPECTED, is_valid_response::quit),
         ],
     );
 

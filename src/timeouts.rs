@@ -25,6 +25,14 @@
 //!
 //! Notably, [`SERVER_TIMEOUT`] is the only timeout relevant to a server implementation. The
 //! timeouts used by clients are here for the sake of testing and thoroughness.
+//!
+//! Note that, when testing, all timeouts are overridden to [`EXPECTED`]; because a testing
+//! environment can be expected to have better performance than the real world.
+
+/// A very strict timeout for how long participants should wait for anything.
+///
+/// Not specified by RFC 5321. This is for identifying unusual performance for testing and logging.
+pub const EXPECTED: std::time::Duration = std::time::Duration::from_secs(3);
 
 /// Generate `const` items with [`std::time::Duration`] values in minutes, optionally including
 /// documentation comments.
@@ -46,7 +54,7 @@ macro_rules! minute_durations {
                 $( #[$attr] )*
                 #[cfg(test)]
                 pub const $label: ::std::time::Duration =
-                    ::std::time::Duration::from_secs(3);
+                    $crate::timeouts::EXPECTED;
             )+
         };
     }
