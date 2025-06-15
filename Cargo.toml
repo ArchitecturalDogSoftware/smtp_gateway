@@ -20,10 +20,10 @@ members = ["smtp_gateway_bot"]
 
 [dependencies]
 ascii = "1.1.0"
-async-stream = "0.3.5"
-futures-core = "0.3.30"
-futures-util = "0.3.30"
-tokio = { version = "1.40.0", features = ["full"] } # Replace `"full"` later
+async-stream = "0.3.6"
+futures-core = "0.3.31"
+futures-util = "0.3.31"
+tokio = { version = "1.45.1", features = ["full"] } # Replace `"full"` later
 
 [dev-dependencies]
 tokio-test = "0.4.4"
